@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Getting started
+    url: https://github.com/rsasaki0109/nav2_diffusion_planner/blob/main/docs/getting_started.md
+    about: Nav2 user onboarding (plugin swap, demo, safety prerequisites).
+  - name: Contributing guide
+    url: https://github.com/rsasaki0109/nav2_diffusion_planner/blob/main/docs/contributing.md
+    about: How to add models, safety filters, scorers, and benchmarks.

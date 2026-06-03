@@ -1,0 +1,71 @@
+name: Model submission
+description: Propose a model for the Model Zoo
+labels: ["model-submission"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Models are accepted only with a manifest, a model card, and a passing
+        benchmark run (docs/architecture.md section 5.5, docs/contributing.md).
+        Benchmark-failing models are not added (section 3.4).
+  - type: input
+    id: model_name
+    attributes:
+      label: Model name
+    validations:
+      required: true
+  - type: dropdown
+    id: family
+    attributes:
+      label: Model family
+      options:
+        - diffusion
+        - flow
+        - consistency
+        - transformer
+        - world_model
+    validations:
+      required: true
+  - type: input
+    id: manifest
+    attributes:
+      label: Manifest link
+      description: Link to the model manifest (section 5.4, all fields).
+    validations:
+      required: true
+  - type: input
+    id: model_card
+    attributes:
+      label: Model card link
+    validations:
+      required: true
+  - type: textarea
+    id: benchmark
+    attributes:
+      label: Benchmark results
+      description: Suite version + headline metrics vs MPPI/RPP on the same scenarios; latency p95/p99.
+    validations:
+      required: true
+  - type: textarea
+    id: failures
+    attributes:
+      label: Failure cases
+      description: Where does it fail? (Honest failure cases are required.)
+    validations:
+      required: true
+  - type: input
+    id: license
+    attributes:
+      label: License (model / data / code)
+    validations:
+      required: true
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Submission checklist
+      options:
+        - label: Manifest includes every section-5.4 field
+        - label: Model card completed (docs/architecture.md section 5.5)
+        - label: Benchmark suite passes (safety-first score reported)
+        - label: Safety-gate pass rate and fallback rate reported
+        - label: Licenses for model / data / code stated separately

@@ -1,0 +1,58 @@
+name: Bug report
+description: Report a defect in nav2_diffusion_planner
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. If this involves robot safety on hardware,
+        please also note it under "Safety impact" below.
+  - type: input
+    id: ros_distro
+    attributes:
+      label: ROS 2 distro
+      placeholder: jazzy
+    validations:
+      required: true
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      options:
+        - nav2_diffusion_core
+        - nav2_diffusion_msgs
+        - nav2_diffusion_safety
+        - nav2_diffusion_controller
+        - nav2_diffusion_planner
+        - nav2_diffusion_bringup
+        - nav2_diffusion_benchmarks
+        - other / not sure
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Commands, launch files, params, and scenario.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include logs, SafetyState, and rejection reasons if available.
+    validations:
+      required: true
+  - type: textarea
+    id: safety_impact
+    attributes:
+      label: Safety impact
+      description: Did the robot move unsafely? Did a fallback/stop trigger? Sim or real?
+    validations:
+      required: false
