@@ -14,7 +14,7 @@ Nav2 Controller Plugin integration。
 2. **入力検証**: stale-data ゲート（robot pose/odom/TF の鮮度、costmap current。§7.4 Runtime Gating）
 3. **検証（候補ごと）**: `KinematicLimitsFilter`（速度上限）→ `FootprintCollisionFilter`（Local Costmap への footprint 衝突判定、costmap mutex を保持して実行）
 4. **選択（scoring）**: 安全な候補を `nav2_diffusion_core` の Trajectory Scorer（goal への接近 + smoothness）で評価し best を選ぶ（§4.1 step 7）
-5. **抽出**: best 候補から `cmd_vel`、**安全候補が無ければ stop（fallback）**
+5. **抽出 / fallback**: best 候補から `cmd_vel`。**安全候補が無い場合** は、`fallback_controller_plugin` が設定されていれば Nav2 標準 Controller（MPPI/RPP 等）へ委譲（`SafetyState::FALLBACK`、§8.4）、未設定なら stop（`SafetyState::BRAKE`）
 6. **可観測性**: 全候補（`TrajectoryCandidates`、safe_flags / rejection_reasons / best_index）と `SafetyState` を publish（RViz / rosbag 用）
 
 `ros2 run nav2_util ...` ではなく Nav2 controller_server にプラグインとしてロードされる。`ros2 plugin list` で `nav2_core::Controller` として発見されることを確認済み。
@@ -28,6 +28,7 @@ Nav2 Controller Plugin integration。
 - global path 無し → stop
 - robot pose が古い（`data_timeout` 超過）→ stale-data ゲートで stop
 - オフ軸（左上）ゴール → scorer が**旋回候補**を選択（`angular.z > 0` で前進）
+- 全候補がブロック + fallback(RPP) 設定時 → fallback へ委譲して前進（stop しない）
 
 ### 使い方（例）
 
@@ -50,6 +51,7 @@ Nav2 Controller Plugin integration。
 | `num_candidates` | 11 | 生成する候補軌道数（角速度ファンのサンプル数） |
 | `score_progress_weight` | 1.0 | scoring: goal 接近の重み |
 | `score_smoothness_weight` | 0.1 | scoring: 旋回量ペナルティの重み |
+| `fallback_controller_plugin` | "" | 安全候補ゼロ時に委譲する Nav2 Controller plugin。空で無効（stop）。例: `nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController`。そのパラメータは `<name>.fallback.*` 名前空間に置く |
 
 ## v0.1 スコープ
 

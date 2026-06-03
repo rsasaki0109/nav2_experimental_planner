@@ -73,6 +73,8 @@ void DiffusionController::configure(
     node, plugin_name_ + ".score_progress_weight", rclcpp::ParameterValue(1.0));
   declare_parameter_if_not_declared(
     node, plugin_name_ + ".score_smoothness_weight", rclcpp::ParameterValue(0.1));
+  declare_parameter_if_not_declared(
+    node, plugin_name_ + ".fallback_controller_plugin", rclcpp::ParameterValue(std::string("")));
 
   node->get_parameter(plugin_name_ + ".lookahead_distance", lookahead_distance_);
   node->get_parameter(plugin_name_ + ".desired_linear_speed", desired_linear_speed_);
@@ -87,6 +89,7 @@ void DiffusionController::configure(
   node->get_parameter(plugin_name_ + ".num_candidates", num_candidates_);
   node->get_parameter(plugin_name_ + ".score_progress_weight", score_progress_weight_);
   node->get_parameter(plugin_name_ + ".score_smoothness_weight", score_smoothness_weight_);
+  node->get_parameter(plugin_name_ + ".fallback_controller_plugin", fallback_plugin_);
   num_candidates_ = std::max(1, num_candidates_);
 
   kinematic_filter_ = std::make_shared<nav2_diffusion_safety::KinematicLimitsFilter>(
@@ -94,6 +97,22 @@ void DiffusionController::configure(
   footprint_filter_ = std::make_shared<nav2_diffusion_safety::FootprintCollisionFilter>(
     costmap_ros_->getCostmap(), costmap_ros_->getRobotFootprint(),
     253.0, consider_unknown_lethal_);
+
+  if (!fallback_plugin_.empty()) {
+    try {
+      fallback_loader_ = std::make_unique<pluginlib::ClassLoader<nav2_core::Controller>>(
+        "nav2_core", "nav2_core::Controller");
+      fallback_controller_ = fallback_loader_->createSharedInstance(fallback_plugin_);
+      fallback_controller_->configure(parent, plugin_name_ + ".fallback", tf_, costmap_ros_);
+      RCLCPP_INFO(logger_, "Loaded fallback controller '%s'", fallback_plugin_.c_str());
+    } catch (const std::exception & ex) {
+      RCLCPP_ERROR(
+        logger_, "Failed to load fallback controller '%s': %s; will stop instead",
+        fallback_plugin_.c_str(), ex.what());
+      fallback_controller_.reset();
+      fallback_loader_.reset();
+    }
+  }
 
   candidates_pub_ = node->create_publisher<nav2_diffusion_msgs::msg::TrajectoryCandidates>(
     plugin_name_ + "/trajectory_candidates", 1);
@@ -110,27 +129,44 @@ void DiffusionController::cleanup()
   safety_pub_.reset();
   kinematic_filter_.reset();
   footprint_filter_.reset();
+  if (fallback_controller_) {
+    fallback_controller_->cleanup();
+    fallback_controller_.reset();
+  }
+  fallback_loader_.reset();
 }
 
 void DiffusionController::activate()
 {
   candidates_pub_->on_activate();
   safety_pub_->on_activate();
+  if (fallback_controller_) {
+    fallback_controller_->activate();
+  }
 }
 
 void DiffusionController::deactivate()
 {
   candidates_pub_->on_deactivate();
   safety_pub_->on_deactivate();
+  if (fallback_controller_) {
+    fallback_controller_->deactivate();
+  }
 }
 
 void DiffusionController::setPlan(const nav_msgs::msg::Path & path)
 {
   global_plan_ = path;
+  if (fallback_controller_) {
+    fallback_controller_->setPlan(path);
+  }
 }
 
 void DiffusionController::setSpeedLimit(const double & speed_limit, const bool & percentage)
 {
+  if (fallback_controller_) {
+    fallback_controller_->setSpeedLimit(speed_limit, percentage);
+  }
   if (speed_limit <= 0.0) {
     speed_limit_scale_ = 1.0;
     return;
@@ -253,8 +289,8 @@ geometry_msgs::msg::TwistStamped DiffusionController::makeStopCommand() const
 
 geometry_msgs::msg::TwistStamped DiffusionController::computeVelocityCommands(
   const geometry_msgs::msg::PoseStamped & pose,
-  const geometry_msgs::msg::Twist & /*velocity*/,
-  nav2_core::GoalChecker * /*goal_checker*/)
+  const geometry_msgs::msg::Twist & velocity,
+  nav2_core::GoalChecker * goal_checker)
 {
   if (global_plan_.poses.empty()) {
     publishSafetyState(nav2_diffusion_msgs::msg::SafetyState::FALLBACK, "no global plan");
@@ -341,6 +377,14 @@ geometry_msgs::msg::TwistStamped DiffusionController::computeVelocityCommands(
   publishCandidates(candidates, safe_flags, rejection_reasons, best_index);
 
   if (best_index < 0) {
+    if (fallback_controller_) {
+      RCLCPP_WARN(
+        logger_, "No safe generative candidate among %zu; delegating to fallback '%s'",
+        candidates.size(), fallback_plugin_.c_str());
+      publishSafetyState(
+        nav2_diffusion_msgs::msg::SafetyState::FALLBACK, "fallback: " + fallback_plugin_);
+      return fallback_controller_->computeVelocityCommands(pose, velocity, goal_checker);
+    }
     RCLCPP_WARN(logger_, "No safe candidate among %zu; stopping", candidates.size());
     publishSafetyState(nav2_diffusion_msgs::msg::SafetyState::BRAKE, "no safe candidate");
     return makeStopCommand();

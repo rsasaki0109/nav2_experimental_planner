@@ -44,3 +44,9 @@ controller_server:
       num_candidates: 11
       score_progress_weight: 1.0
       score_smoothness_weight: 0.1
+      # Optional: delegate to a standard Nav2 controller when no safe generative
+      # candidate exists (docs/safety.md 8.4). Empty disables it (stop instead).
+      # fallback_controller_plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
+      # fallback:
+      #   plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
+      #   desired_linear_vel: 0.26

@@ -30,6 +30,7 @@
 #include "nav2_diffusion_safety/footprint_collision_filter.hpp"
 #include "nav2_diffusion_safety/kinematic_limits_filter.hpp"
 #include "nav_msgs/msg/path.hpp"
+#include "pluginlib/class_loader.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "rclcpp_lifecycle/lifecycle_publisher.hpp"
@@ -140,6 +141,13 @@ protected:
 
   std::shared_ptr<nav2_diffusion_safety::KinematicLimitsFilter> kinematic_filter_;
   std::shared_ptr<nav2_diffusion_safety::FootprintCollisionFilter> footprint_filter_;
+
+  // Optional fallback controller (e.g. MPPI / RPP). When no safe generative
+  // candidate exists, control is delegated here instead of stopping
+  // (docs/safety.md section 8.4). Empty plugin string disables it.
+  std::string fallback_plugin_;
+  std::unique_ptr<pluginlib::ClassLoader<nav2_core::Controller>> fallback_loader_;
+  nav2_core::Controller::Ptr fallback_controller_;
 
   std::shared_ptr<
     rclcpp_lifecycle::LifecyclePublisher<nav2_diffusion_msgs::msg::TrajectoryCandidates>>
