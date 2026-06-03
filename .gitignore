@@ -1,0 +1,46 @@
+# ROS 2 / colcon
+build/
+install/
+log/
+.colcon/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# C++ / CMake
+*.o
+*.so
+*.a
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# Model artifacts (kept out of git; distribute via model registry / release assets)
+*.pt
+*.pth
+*.onnx
+*.engine
+*.plan
+*.trt
+
+# Data / logs
+*.bag
+*.db3
+*.mcap
+rosbag2_*/
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
