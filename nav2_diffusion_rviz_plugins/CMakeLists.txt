@@ -13,6 +13,7 @@ find_package(nav2_diffusion_msgs REQUIRED)
 
 add_library(${PROJECT_NAME} SHARED
   src/candidate_markers.cpp
+  src/safety_state_marker.cpp
 )
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 target_include_directories(${PROJECT_NAME} PUBLIC
@@ -53,6 +54,10 @@ if(BUILD_TESTING)
   ament_add_gtest(test_candidate_markers test/test_candidate_markers.cpp)
   target_link_libraries(test_candidate_markers ${PROJECT_NAME})
   ament_target_dependencies(test_candidate_markers visualization_msgs nav2_diffusion_msgs)
+
+  ament_add_gtest(test_safety_state_marker test/test_safety_state_marker.cpp)
+  target_link_libraries(test_safety_state_marker ${PROJECT_NAME})
+  ament_target_dependencies(test_safety_state_marker visualization_msgs nav2_diffusion_msgs)
 endif()
 
 ament_package()

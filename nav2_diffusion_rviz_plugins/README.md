@@ -11,8 +11,9 @@ Ogre 依存のカスタム RViz display ではなく、**標準の MarkerArray d
 ## 現状の実装
 
 - `candidate_markers.hpp`: `toMarkerArray()` — `nav2_diffusion_msgs/TrajectoryCandidates` を `visualization_msgs/MarkerArray` に変換。各候補を LINE_STRIP にし、**best=緑 / safe=青 / rejected=赤**で色分け。先頭に DELETEALL で前周期をクリア。
-- `candidate_markers` ノード: `trajectory_candidates` を購読し `candidate_markers`（MarkerArray）を publish する薄い ROS グルー。
-- gtest（`test/test_candidate_markers.cpp`）
+- `safety_state_marker.hpp`: `toSafetyMarker()` — `nav2_diffusion_msgs/SafetyState` を TEXT_VIEW_FACING marker に変換。状態名+詳細を表示し、**NOMINAL=緑 / CAUTIOUS=黄 / DEGRADED・FALLBACK=橙 / BRAKE・EMERGENCY_STOP=赤 / RECOVERY=青**で色分け（§8.3）。
+- `candidate_markers` ノード: `trajectory_candidates`→`candidate_markers`（MarkerArray）と、`safety_state`→`safety_state_marker`（Marker）を publish する薄い ROS グルー。
+- gtest（`test/test_candidate_markers.cpp`, `test/test_safety_state_marker.cpp`）
 
 ### 使い方
 
@@ -24,5 +25,5 @@ ros2 run nav2_diffusion_rviz_plugins candidate_markers \
 
 ## TODO
 
-- `nav2_diffusion_msgs/SafetyState` の状態表示（テキスト marker / panel）
 - best trajectory のハイライト強調・棄却理由のテキスト付与
+- Ogre ベースの RViz panel（任意）
