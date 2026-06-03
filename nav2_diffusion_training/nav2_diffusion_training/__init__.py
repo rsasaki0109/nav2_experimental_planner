@@ -19,5 +19,6 @@ from nav2_diffusion_training.dataset import (
     save_jsonl,
     TrackState,
 )
+from nav2_diffusion_training.experts import unicycle_to_goal
 
-__all__ = ['TrackState', 'build_samples', 'save_jsonl']
+__all__ = ['TrackState', 'build_samples', 'save_jsonl', 'unicycle_to_goal']
