@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "nav2_costmap_2d/costmap_2d.hpp"
+#include "nav2_diffusion_core/fan_rollout_model.hpp"
 #include "nav2_diffusion_core/scoring.hpp"
 #include "nav2_util/node_utils.hpp"
 #include "pluginlib/class_list_macros.hpp"
@@ -92,6 +93,7 @@ void DiffusionController::configure(
   node->get_parameter(plugin_name_ + ".fallback_controller_plugin", fallback_plugin_);
   num_candidates_ = std::max(1, num_candidates_);
 
+  model_ = std::make_shared<nav2_diffusion_core::FanRolloutModel>();
   kinematic_filter_ = std::make_shared<nav2_diffusion_safety::KinematicLimitsFilter>(
     max_linear_speed_, max_angular_speed_);
   footprint_filter_ = std::make_shared<nav2_diffusion_safety::FootprintCollisionFilter>(
@@ -127,6 +129,7 @@ void DiffusionController::cleanup()
 {
   candidates_pub_.reset();
   safety_pub_.reset();
+  model_.reset();
   kinematic_filter_.reset();
   footprint_filter_.reset();
   if (fallback_controller_) {
@@ -202,55 +205,35 @@ geometry_msgs::msg::PoseStamped DiffusionController::getLookaheadPointInBaseFram
   return carrot;
 }
 
-nav2_diffusion_core::Trajectory DiffusionController::rollout(
-  double linear, double angular) const
+geometry_msgs::msg::Twist DiffusionController::extractCommand(
+  const nav2_diffusion_core::Trajectory & trajectory) const
 {
-  nav2_diffusion_core::Trajectory trajectory;
-  const int steps = std::max(1, static_cast<int>(horizon_ / time_step_));
-
-  double x = 0.0;
-  double y = 0.0;
-  double yaw = 0.0;
-  trajectory.points.push_back({x, y, yaw, 0.0});
-  for (int i = 1; i <= steps; ++i) {
-    yaw += angular * time_step_;
-    x += linear * std::cos(yaw) * time_step_;
-    y += linear * std::sin(yaw) * time_step_;
-    trajectory.points.push_back({x, y, yaw, i * time_step_});
+  geometry_msgs::msg::Twist cmd;
+  if (trajectory.points.size() < 2) {
+    return cmd;
   }
-  return trajectory;
-}
-
-std::vector<DiffusionController::Candidate> DiffusionController::generateCandidates(
-  const geometry_msgs::msg::PoseStamped & carrot_base) const
-{
-  const double dx = carrot_base.pose.position.x;
-  const double dy = carrot_base.pose.position.y;
-  const double dist_sq = dx * dx + dy * dy;
-
-  const double linear = std::min(desired_linear_speed_, max_linear_speed_) * speed_limit_scale_;
-  const double nominal_curvature = dist_sq > 1e-6 ? 2.0 * dy / dist_sq : 0.0;
-  const double nominal_angular =
-    std::clamp(linear * nominal_curvature, -max_angular_speed_, max_angular_speed_);
-
-  std::vector<Candidate> candidates;
-  candidates.reserve(num_candidates_);
-  // Sample a fan of angular velocities spanning the robot's turn limits, always
-  // including the nominal pure-pursuit command. This is the placeholder for a
-  // learned model's multimodal trajectory distribution.
-  for (int i = 0; i < num_candidates_; ++i) {
-    double angular = nominal_angular;
-    if (num_candidates_ > 1) {
-      const double frac = static_cast<double>(i) / static_cast<double>(num_candidates_ - 1);
-      angular = -max_angular_speed_ + frac * (2.0 * max_angular_speed_);
-    }
-    Candidate candidate;
-    candidate.linear = linear;
-    candidate.angular = angular;
-    candidate.trajectory = rollout(linear, angular);
-    candidates.push_back(candidate);
+  const auto & p0 = trajectory.points.front();
+  const auto & p1 = trajectory.points[1];
+  const double dt = p1.time - p0.time;
+  if (dt <= 0.0) {
+    return cmd;
   }
-  return candidates;
+  const double dx = p1.x - p0.x;
+  const double dy = p1.y - p0.y;
+  double linear = std::hypot(dx, dy) / dt;
+  // Sign: negative if the first step moves behind the starting heading.
+  if (dx * std::cos(p0.yaw) + dy * std::sin(p0.yaw) < 0.0) {
+    linear = -linear;
+  }
+  double dyaw = std::fmod(p1.yaw - p0.yaw + M_PI, 2.0 * M_PI);
+  if (dyaw < 0.0) {
+    dyaw += 2.0 * M_PI;
+  }
+  dyaw -= M_PI;
+
+  cmd.linear.x = linear;
+  cmd.angular.z = dyaw / dt;
+  return cmd;
 }
 
 nav2_diffusion_core::Trajectory DiffusionController::toGlobalFrame(
@@ -334,8 +317,19 @@ geometry_msgs::msg::TwistStamped DiffusionController::computeVelocityCommands(
     return makeStopCommand();
   }
 
-  // Multimodal proposal: generate K candidate trajectories (placeholder model).
-  const std::vector<Candidate> candidates = generateCandidates(carrot);
+  // Multimodal proposal: ask the generative model for K candidate trajectories
+  // (base frame). The built-in FanRolloutModel is a placeholder for a learned
+  // model behind the same nav2_diffusion_core::TrajectoryModel interface.
+  nav2_diffusion_core::ModelContext context;
+  context.goal_x = dx;
+  context.goal_y = dy;
+  context.linear_speed = std::min(desired_linear_speed_, max_linear_speed_) * speed_limit_scale_;
+  context.max_angular_speed = max_angular_speed_;
+  context.horizon = horizon_;
+  context.time_step = time_step_;
+  context.num_candidates = num_candidates_;
+  const std::vector<nav2_diffusion_core::Trajectory> candidates = model_->generate(context);
+
   std::vector<bool> safe_flags(candidates.size(), false);
   std::vector<std::string> rejection_reasons(candidates.size());
 
@@ -347,9 +341,9 @@ geometry_msgs::msg::TwistStamped DiffusionController::computeVelocityCommands(
     footprint_filter_->setCostmap(costmap);
     footprint_filter_->setFootprint(costmap_ros_->getRobotFootprint());
     for (std::size_t i = 0; i < candidates.size(); ++i) {
-      auto verdict = kinematic_filter_->check(candidates[i].trajectory);
+      auto verdict = kinematic_filter_->check(candidates[i]);
       if (verdict.safe) {
-        verdict = footprint_filter_->check(toGlobalFrame(candidates[i].trajectory, pose));
+        verdict = footprint_filter_->check(toGlobalFrame(candidates[i], pose));
       }
       safe_flags[i] = verdict.safe;
       rejection_reasons[i] = verdict.rejection_reason;
@@ -366,8 +360,7 @@ geometry_msgs::msg::TwistStamped DiffusionController::computeVelocityCommands(
     if (!safe_flags[i]) {
       continue;
     }
-    const double score = nav2_diffusion_core::scoreTrajectory(
-      candidates[i].trajectory, dx, dy, weights);
+    const double score = nav2_diffusion_core::scoreTrajectory(candidates[i], dx, dy, weights);
     if (best_index < 0 || score > best_score) {
       best_index = static_cast<int>(i);
       best_score = score;
@@ -393,14 +386,13 @@ geometry_msgs::msg::TwistStamped DiffusionController::computeVelocityCommands(
   geometry_msgs::msg::TwistStamped cmd;
   cmd.header.frame_id = base_frame_;
   cmd.header.stamp = clock_->now();
-  cmd.twist.linear.x = candidates[best_index].linear;
-  cmd.twist.angular.z = candidates[best_index].angular;
+  cmd.twist = extractCommand(candidates[best_index]);
   publishSafetyState(nav2_diffusion_msgs::msg::SafetyState::NOMINAL, "");
   return cmd;
 }
 
 void DiffusionController::publishCandidates(
-  const std::vector<Candidate> & candidates,
+  const std::vector<nav2_diffusion_core::Trajectory> & candidates,
   const std::vector<bool> & safe_flags,
   const std::vector<std::string> & rejection_reasons,
   int best_index) const
@@ -416,8 +408,8 @@ void DiffusionController::publishCandidates(
   for (std::size_t i = 0; i < candidates.size(); ++i) {
     nav2_diffusion_msgs::msg::TrajectoryCandidate candidate;
     candidate.header = msg.header;
-    candidate.model_score = candidates[i].trajectory.model_score;
-    for (const auto & point : candidates[i].trajectory.points) {
+    candidate.model_score = candidates[i].model_score;
+    for (const auto & point : candidates[i].points) {
       geometry_msgs::msg::Pose pose;
       pose.position.x = point.x;
       pose.position.y = point.y;

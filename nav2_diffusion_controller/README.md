@@ -10,7 +10,7 @@ Nav2 Controller Plugin integration。
 
 `nav2_diffusion_controller::DiffusionController` がパイプラインを配線済み:
 
-1. **提案（multimodal）**: lookahead 点へ向かう **K 個の候補軌道**を生成（**生成モデルのプレースホルダ**。現状は角速度をファン状にサンプルして直進/左/右の複数モードを作り、後で学習モデルの multimodal 出力に差し替える）
+1. **提案（multimodal）**: `nav2_diffusion_core::TrajectoryModel`（生成モデルの plugin seam、§5.2）に lookahead 点を条件として **K 個の候補軌道**を生成させる。現状の組み込み実装は `FanRolloutModel`（角速度をファン状にサンプルして直進/左/右の複数モードを作るプレースホルダ）。**学習モデル（PyTorch/ONNX/TensorRT）は同じ interface の裏に差し込む**だけで、以降の安全層・scoring・fallback・可観測化をそのまま再利用できる。
 2. **入力検証**: stale-data ゲート（robot pose/odom/TF の鮮度、costmap current。§7.4 Runtime Gating）
 3. **検証（候補ごと）**: `KinematicLimitsFilter`（速度上限）→ `FootprintCollisionFilter`（Local Costmap への footprint 衝突判定、costmap mutex を保持して実行）
 4. **選択（scoring）**: 安全な候補を `nav2_diffusion_core` の Trajectory Scorer（goal への接近 + smoothness）で評価し best を選ぶ（§4.1 step 7）
