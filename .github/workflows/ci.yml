@@ -39,3 +39,4 @@ jobs:
             nav2_diffusion_benchmarks
             nav2_diffusion_rviz_plugins
             nav2_diffusion_training
+            nav2_diffusion_onnx

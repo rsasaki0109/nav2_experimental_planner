@@ -395,6 +395,7 @@ flowchart TD
 | `/nav2_diffusion_rviz_plugins` | candidate trajectory visualization |
 | `/nav2_diffusion_models` | model manifest examples and lightweight test models |
 | `/nav2_diffusion_training` | dataset, training, export pipeline |
+| `/nav2_diffusion_onnx` | optional ONNX Runtime backend implementing `TrajectoryModel` (§7.2) |
 | `/nav2_diffusion_benchmarks` | scenarios, metrics, reports |
 | `/nav2_diffusion_sim` | Gazebo / Isaac Sim scenario assets |
 | `/nav2_diffusion_tools` | rosbag conversion, model validation, report generation |
