@@ -4,6 +4,37 @@ All notable changes to this project are documented here. The project aims to
 follow [Semantic Versioning](https://semver.org/); APIs are not yet stable
 before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
+## [Unreleased]
+
+### Added
+
+- **Generative GlobalPlanner (Nav2 Mode B)** — `nav2_diffusion_global_planner`,
+  a `nav2_core::GlobalPlanner` plugin. A model proposes K candidate start→goal
+  paths via a new `nav2_diffusion_core::PathModel` seam (built-in analytic
+  `FanPathModel`: straight line + symmetric detour fan; learned models loadable
+  via pluginlib), a deterministic validity layer checks each candidate against
+  the global costmap, and the shortest collision-free path is returned —
+  otherwise `NoValidPathCouldBeFound` (or `StartOccupied`/`GoalOccupied`/
+  `PlannerCancelled`). A targeted survey confirmed no open-source generative
+  model is integrated as a Nav2 GlobalPlanner; the novelty is the Nav2-native
+  integration + costmap validation/fallback wrapper. Closed-loop integration
+  tests run against a live `Costmap2DROS` (no Gazebo/GPU): straight path on a
+  clear map, detour around a partial obstacle, and failure on a full wall.
+- **Offline model-comparison leaderboard** — `tools/benchmark_models.py` +
+  `nav2_diffusion_training.model_eval` (torch-free metrics: clearance, collision,
+  progress, turning, success, safety-first ranking) trains the six generative
+  families on a shared obstacle-with-gap dataset and writes
+  `docs/model_comparison.md`. Costmap-conditioned models top the ranking;
+  `costmap-consistency` (1-step) wins.
+- **Costmap-conditioned avoidance demo GIF** (`docs/costmap_demo.gif`,
+  `tools/costmap_demo.py`) rendered from the real `CostmapFlowPlanner`.
+
+### Changed
+
+- `DiffusionPlanner` / `CostmapDiffusionPlanner` clamp the DDIM `x0` estimate
+  (standard static thresholding) so sampling stays numerically stable instead of
+  dividing by the near-zero final `alpha_bar`.
+
 ## [0.3.0] - 2026-06-03
 
 Theme: **research-driven generative model families + costmap conditioning.** A

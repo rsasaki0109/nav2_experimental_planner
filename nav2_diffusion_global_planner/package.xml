@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>nav2_diffusion_global_planner</name>
+  <version>0.3.0</version>
+  <description>
+    Nav2 GlobalPlanner plugin (Mode B) for generative global planning: a model
+    proposes K candidate start-to-goal paths, a deterministic validity layer
+    checks each against the global costmap, and the shortest collision-free path
+    is returned (otherwise NoValidPathCouldBeFound). The proposal stage is a
+    nav2_diffusion_core::PathModel seam (built-in analytic FanPathModel by
+    default, learned models loadable via pluginlib). See docs/architecture.md
+    section 3.2 (Mode B) and docs/safety.md.
+  </description>
+
+  <maintainer email="rsasaki0109@gmail.com">Ryohei Sasaki</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_lifecycle</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>nav2_core</depend>
+  <depend>nav2_costmap_2d</depend>
+  <depend>nav2_util</depend>
+  <depend>pluginlib</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>nav2_diffusion_core</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+    <nav2_core plugin="${prefix}/nav2_diffusion_global_planner_plugin.xml" />
+  </export>
+</package>

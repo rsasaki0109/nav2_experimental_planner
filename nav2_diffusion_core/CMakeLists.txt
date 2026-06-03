@@ -11,6 +11,8 @@ add_library(${PROJECT_NAME} SHARED
   src/trajectory.cpp
   src/scoring.cpp
   src/fan_rollout_model.cpp
+  src/path.cpp
+  src/fan_path_model.cpp
 )
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 target_include_directories(${PROJECT_NAME} PUBLIC
@@ -46,6 +48,12 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_fan_rollout_model test/test_fan_rollout_model.cpp)
   target_link_libraries(test_fan_rollout_model ${PROJECT_NAME})
+
+  ament_add_gtest(test_path test/test_path.cpp)
+  target_link_libraries(test_path ${PROJECT_NAME})
+
+  ament_add_gtest(test_fan_path_model test/test_fan_path_model.cpp)
+  target_link_libraries(test_fan_path_model ${PROJECT_NAME})
 endif()
 
 ament_package()

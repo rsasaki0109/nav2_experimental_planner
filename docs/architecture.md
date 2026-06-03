@@ -364,6 +364,7 @@ flowchart TD
   core["nav2_diffusion_core<br/>(types, scorer, model seam)"]
   safety["nav2_diffusion_safety"]
   controller["nav2_diffusion_controller<br/>(Nav2 Controller plugin)"]
+  globalplanner["nav2_diffusion_global_planner<br/>(Nav2 GlobalPlanner plugin)"]
   benchmarks["nav2_diffusion_benchmarks"]
   rviz["nav2_diffusion_rviz_plugins"]
   bringup["nav2_diffusion_bringup"]
@@ -371,11 +372,13 @@ flowchart TD
 
   core --> safety
   core --> controller
+  core --> globalplanner
   core --> benchmarks
   msgs --> controller
   safety --> controller
   msgs --> rviz
   controller --> bringup
+  globalplanner --> bringup
   rviz --> bringup
 ```
 
@@ -387,8 +390,8 @@ flowchart TD
 |---|---|
 | `/docs` | architecture, safety, benchmark, deployment, model cards |
 | `/nav2_diffusion_core` | ROS 非依存に近い trajectory schema, scoring concept, shared utilities |
-| `/nav2_diffusion_controller` | Nav2 Controller Plugin integration |
-| `/nav2_diffusion_planner` | Nav2 Planner Plugin integration |
+| `/nav2_diffusion_controller` | Nav2 Controller Plugin integration（Mode A）, `TrajectoryModel` seam |
+| `/nav2_diffusion_global_planner` | Nav2 GlobalPlanner Plugin integration（Mode B）, `PathModel` seam（生成パス提案 → costmap 検証 → 最短安全パス選択） |
 | `/nav2_diffusion_msgs` | trajectory candidates, diagnostics, benchmark result messages |
 | `/nav2_diffusion_safety` | safety gate, collision validation integration |
 | `/nav2_diffusion_bringup` | example launch/config for Nav2 |

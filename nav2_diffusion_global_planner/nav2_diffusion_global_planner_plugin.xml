@@ -1,0 +1,14 @@
+<library path="nav2_diffusion_global_planner">
+  <class
+    type="nav2_diffusion_global_planner::DiffusionGlobalPlanner"
+    base_class_type="nav2_core::GlobalPlanner">
+    <description>
+      Generative global planner for Nav2 (Mode B). Proposes K candidate
+      start-to-goal paths via a PathModel (built-in analytic FanPathModel by
+      default), validates each against the global costmap, and returns the
+      shortest collision-free path. Throws NoValidPathCouldBeFound when no
+      candidate is collision-free. The proposal model is a placeholder pending a
+      real learned generative path model loaded via the PathModel seam.
+    </description>
+  </class>
+</library>
