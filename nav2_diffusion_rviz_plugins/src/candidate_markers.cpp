@@ -15,6 +15,7 @@
 #include "nav2_diffusion_rviz_plugins/candidate_markers.hpp"
 
 #include <cstddef>
+#include <string>
 
 #include "geometry_msgs/msg/point.hpp"
 #include "visualization_msgs/msg/marker.hpp"
@@ -35,7 +36,8 @@ void setColor(visualization_msgs::msg::Marker & marker, float r, float g, float 
 
 visualization_msgs::msg::MarkerArray toMarkerArray(
   const nav2_diffusion_msgs::msg::TrajectoryCandidates & candidates,
-  double line_width)
+  double line_width,
+  bool show_rejection_text)
 {
   visualization_msgs::msg::MarkerArray array;
 
@@ -52,17 +54,19 @@ visualization_msgs::msg::MarkerArray toMarkerArray(
     marker.id = static_cast<int>(i);
     marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
     marker.action = visualization_msgs::msg::Marker::ADD;
-    marker.scale.x = line_width;
     marker.pose.orientation.w = 1.0;
 
     const bool is_best = static_cast<int>(i) == candidates.best_index;
     const bool safe = i < candidates.safe_flags.size() && candidates.safe_flags[i];
     if (is_best) {
       setColor(marker, 0.0f, 1.0f, 0.0f);    // best: green
+      marker.scale.x = line_width * 2.5;     // highlight the selected trajectory
     } else if (safe) {
       setColor(marker, 0.0f, 0.4f, 1.0f);    // safe: blue
+      marker.scale.x = line_width;
     } else {
       setColor(marker, 1.0f, 0.0f, 0.0f);    // rejected: red
+      marker.scale.x = line_width;
     }
 
     for (const auto & pose : candidate.poses) {
@@ -73,6 +77,23 @@ visualization_msgs::msg::MarkerArray toMarkerArray(
       marker.points.push_back(point);
     }
     array.markers.push_back(marker);
+
+    const std::string reason =
+      i < candidates.rejection_reasons.size() ? candidates.rejection_reasons[i] : std::string();
+    if (show_rejection_text && !safe && !is_best && !reason.empty() && !candidate.poses.empty()) {
+      visualization_msgs::msg::Marker text;
+      text.header = candidates.header;
+      text.ns = "rejection_reasons";
+      text.id = static_cast<int>(i);
+      text.type = visualization_msgs::msg::Marker::TEXT_VIEW_FACING;
+      text.action = visualization_msgs::msg::Marker::ADD;
+      text.scale.z = line_width * 5.0;
+      setColor(text, 1.0f, 0.0f, 0.0f);
+      text.pose.orientation.w = 1.0;
+      text.pose.position = candidate.poses.back().position;
+      text.text = reason;
+      array.markers.push_back(text);
+    }
   }
   return array;
 }

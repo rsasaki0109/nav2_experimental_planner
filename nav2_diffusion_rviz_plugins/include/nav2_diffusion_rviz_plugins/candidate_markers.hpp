@@ -24,11 +24,14 @@ namespace nav2_diffusion_rviz_plugins
 /// Convert trajectory candidates into RViz markers so the behavior is
 /// explainable (docs/architecture.md section 3.4: all candidates must be
 /// visualizable). Each candidate becomes a LINE_STRIP, colored by verdict:
-/// green = selected best, blue = safe, red = rejected by the safety gate.
-/// A leading DELETEALL marker clears the previous cycle's markers.
+/// green = selected best (drawn thicker), blue = safe, red = rejected by the
+/// safety gate. When show_rejection_text is set, each rejected candidate with a
+/// reason gets a small red TEXT marker at its end. A leading DELETEALL marker
+/// clears the previous cycle's markers.
 visualization_msgs::msg::MarkerArray toMarkerArray(
   const nav2_diffusion_msgs::msg::TrajectoryCandidates & candidates,
-  double line_width = 0.02);
+  double line_width = 0.02,
+  bool show_rejection_text = true);
 
 }  // namespace nav2_diffusion_rviz_plugins
 

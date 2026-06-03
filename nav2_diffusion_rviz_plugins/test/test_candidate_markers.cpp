@@ -78,4 +78,29 @@ TEST(CandidateMarkersTest, ColorsBestSafeAndRejected)
   EXPECT_GT(safe.color.b, 0.5f);     // blue
   EXPECT_GT(rejected.color.r, 0.5f);  // red
   EXPECT_LT(rejected.color.g, 0.5f);
+
+  // The best trajectory is drawn thicker than the others.
+  EXPECT_GT(best.scale.x, safe.scale.x);
+}
+
+TEST(CandidateMarkersTest, AddsRejectionReasonText)
+{
+  nav2_diffusion_msgs::msg::TrajectoryCandidates candidates;
+  candidates.candidates.push_back(makeCandidate(1.0));  // best
+  candidates.candidates.push_back(makeCandidate(1.0));  // rejected with reason
+  candidates.safe_flags = {true, false};
+  candidates.rejection_reasons = {"", "footprint collision"};
+  candidates.best_index = 0;
+
+  const auto markers = toMarkerArray(candidates);
+
+  bool found_text = false;
+  for (const auto & m : markers.markers) {
+    if (m.type == visualization_msgs::msg::Marker::TEXT_VIEW_FACING) {
+      found_text = true;
+      EXPECT_EQ(m.text, "footprint collision");
+      EXPECT_EQ(m.ns, "rejection_reasons");
+    }
+  }
+  EXPECT_TRUE(found_text);
 }
