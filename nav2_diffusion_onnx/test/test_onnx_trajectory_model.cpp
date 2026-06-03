@@ -25,7 +25,8 @@ using nav2_diffusion_onnx::OnnxTrajectoryModel;
 
 TEST(OnnxTrajectoryModelTest, LoadsModelAndProducesCandidates)
 {
-  OnnxTrajectoryModel model(ONNX_TEST_MODEL, 0.1);
+  OnnxTrajectoryModel model;
+  model.configure(ONNX_TEST_MODEL);
   EXPECT_EQ(model.name(), "onnx");
 
   nav2_diffusion_core::ModelContext context;
@@ -33,6 +34,7 @@ TEST(OnnxTrajectoryModelTest, LoadsModelAndProducesCandidates)
   context.goal_y = 0.5;
   context.linear_speed = 0.3;
   context.max_angular_speed = 1.0;
+  context.time_step = 0.1;
 
   const auto candidates = model.generate(context);
 
@@ -47,9 +49,10 @@ TEST(OnnxTrajectoryModelTest, LoadsModelAndProducesCandidates)
 
 TEST(OnnxTrajectoryModelTest, IsDeterministic)
 {
-  OnnxTrajectoryModel model(ONNX_TEST_MODEL, 0.1);
+  OnnxTrajectoryModel model(ONNX_TEST_MODEL);
   nav2_diffusion_core::ModelContext context;
   context.goal_x = 1.0;
+  context.time_step = 0.1;
 
   const auto a = model.generate(context);
   const auto b = model.generate(context);

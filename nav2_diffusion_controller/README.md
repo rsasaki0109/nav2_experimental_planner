@@ -10,7 +10,7 @@ Nav2 Controller Plugin integration。
 
 `nav2_diffusion_controller::DiffusionController` がパイプラインを配線済み:
 
-1. **提案（multimodal）**: `nav2_diffusion_core::TrajectoryModel`（生成モデルの plugin seam、§5.2）に lookahead 点を条件として **K 個の候補軌道**を生成させる。現状の組み込み実装は `FanRolloutModel`（角速度をファン状にサンプルして直進/左/右の複数モードを作るプレースホルダ）。**学習モデル（PyTorch/ONNX/TensorRT）は同じ interface の裏に差し込む**だけで、以降の安全層・scoring・fallback・可観測化をそのまま再利用できる。
+1. **提案（multimodal）**: `nav2_diffusion_core::TrajectoryModel`（生成モデルの plugin seam、§5.2）に lookahead 点を条件として **K 個の候補軌道**を生成させる。既定は組み込み `FanRolloutModel`（プレースホルダ）。`model_plugin` を設定すると **pluginlib で学習モデルを実行時ロード**（例: `nav2_diffusion_onnx::OnnxTrajectoryModel`）。controller は推論バックエンドに直接リンクせず、以降の安全層・scoring・fallback・可観測化をそのまま再利用できる。
 2. **入力検証**: stale-data ゲート（robot pose/odom/TF の鮮度、costmap current。§7.4 Runtime Gating）
 3. **検証（候補ごと）**: `KinematicLimitsFilter`（速度上限）→ `FootprintCollisionFilter`（Local Costmap への footprint 衝突判定、costmap mutex を保持して実行）
 4. **選択（scoring）**: 安全な候補を `nav2_diffusion_core` の Trajectory Scorer（goal への接近 + smoothness）で評価し best を選ぶ（§4.1 step 7）
@@ -52,6 +52,8 @@ Nav2 Controller Plugin integration。
 | `score_progress_weight` | 1.0 | scoring: goal 接近の重み |
 | `score_smoothness_weight` | 0.1 | scoring: 旋回量ペナルティの重み |
 | `fallback_controller_plugin` | "" | 安全候補ゼロ時に委譲する Nav2 Controller plugin。空で無効（stop）。例: `nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController`。そのパラメータは `<name>.fallback.*` 名前空間に置く |
+| `model_plugin` | "" | 生成モデルの `TrajectoryModel` plugin 名。空で組み込み `FanRolloutModel`。例: `nav2_diffusion_onnx::OnnxTrajectoryModel`（controller は onnxruntime に直接依存せず、pluginlib で実行時ロード） |
+| `model_path` | "" | `model_plugin` の `configure()` に渡すモデルパス（例: ONNX ファイル） |
 
 ## v0.1 スコープ
 

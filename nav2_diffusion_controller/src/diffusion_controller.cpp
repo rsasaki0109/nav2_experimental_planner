@@ -76,6 +76,10 @@ void DiffusionController::configure(
     node, plugin_name_ + ".score_smoothness_weight", rclcpp::ParameterValue(0.1));
   declare_parameter_if_not_declared(
     node, plugin_name_ + ".fallback_controller_plugin", rclcpp::ParameterValue(std::string("")));
+  declare_parameter_if_not_declared(
+    node, plugin_name_ + ".model_plugin", rclcpp::ParameterValue(std::string("")));
+  declare_parameter_if_not_declared(
+    node, plugin_name_ + ".model_path", rclcpp::ParameterValue(std::string("")));
 
   node->get_parameter(plugin_name_ + ".lookahead_distance", lookahead_distance_);
   node->get_parameter(plugin_name_ + ".desired_linear_speed", desired_linear_speed_);
@@ -91,9 +95,30 @@ void DiffusionController::configure(
   node->get_parameter(plugin_name_ + ".score_progress_weight", score_progress_weight_);
   node->get_parameter(plugin_name_ + ".score_smoothness_weight", score_smoothness_weight_);
   node->get_parameter(plugin_name_ + ".fallback_controller_plugin", fallback_plugin_);
+  node->get_parameter(plugin_name_ + ".model_plugin", model_plugin_);
+  node->get_parameter(plugin_name_ + ".model_path", model_path_);
   num_candidates_ = std::max(1, num_candidates_);
 
-  model_ = std::make_shared<nav2_diffusion_core::FanRolloutModel>();
+  // Generative model: a pluginlib-loaded TrajectoryModel (e.g. an ONNX backend)
+  // when model_plugin is set, otherwise the built-in FanRolloutModel. The
+  // controller does not link any inference backend; it loads one at runtime.
+  if (!model_plugin_.empty()) {
+    try {
+      model_loader_ =
+        std::make_unique<pluginlib::ClassLoader<nav2_diffusion_core::TrajectoryModel>>(
+        "nav2_diffusion_core", "nav2_diffusion_core::TrajectoryModel");
+      model_ = model_loader_->createSharedInstance(model_plugin_);
+      model_->configure(model_path_);
+      RCLCPP_INFO(logger_, "Loaded trajectory model plugin '%s'", model_plugin_.c_str());
+    } catch (const std::exception & ex) {
+      RCLCPP_ERROR(
+        logger_, "Failed to load model plugin '%s': %s; using built-in FanRolloutModel",
+        model_plugin_.c_str(), ex.what());
+      model_ = std::make_shared<nav2_diffusion_core::FanRolloutModel>();
+    }
+  } else {
+    model_ = std::make_shared<nav2_diffusion_core::FanRolloutModel>();
+  }
   kinematic_filter_ = std::make_shared<nav2_diffusion_safety::KinematicLimitsFilter>(
     max_linear_speed_, max_angular_speed_);
   footprint_filter_ = std::make_shared<nav2_diffusion_safety::FootprintCollisionFilter>(
@@ -130,6 +155,7 @@ void DiffusionController::cleanup()
   candidates_pub_.reset();
   safety_pub_.reset();
   model_.reset();
+  model_loader_.reset();
   kinematic_filter_.reset();
   footprint_filter_.reset();
   if (fallback_controller_) {

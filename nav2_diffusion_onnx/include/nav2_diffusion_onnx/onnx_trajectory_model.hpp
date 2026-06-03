@@ -29,18 +29,23 @@ namespace nav2_diffusion_onnx
 /// (docs/architecture.md sections 5.2/7.2). Loads a model that maps a context
 /// vector [goal_x, goal_y, linear_speed, max_angular_speed] to a [1, K, H, 3]
 /// trajectory tensor (K candidates, H steps, x/y/yaw in the base frame) and
-/// turns it into Trajectory candidates. The per-step time uses time_step.
+/// turns it into Trajectory candidates. The per-step time uses
+/// ModelContext::time_step.
+///
+/// Default-constructible so it can be loaded via pluginlib; call configure()
+/// with the ONNX model path before generate().
 class OnnxTrajectoryModel : public nav2_diffusion_core::TrajectoryModel
 {
 public:
-  explicit OnnxTrajectoryModel(const std::string & model_path, double time_step = 0.1);
+  OnnxTrajectoryModel() = default;
+  explicit OnnxTrajectoryModel(const std::string & model_path);
 
+  void configure(const std::string & model_path) override;
   std::string name() const override;
   std::vector<nav2_diffusion_core::Trajectory> generate(
     const nav2_diffusion_core::ModelContext & context) const override;
 
 private:
-  double time_step_;
   std::shared_ptr<Ort::Env> env_;
   mutable std::shared_ptr<Ort::Session> session_;
   std::string input_name_;

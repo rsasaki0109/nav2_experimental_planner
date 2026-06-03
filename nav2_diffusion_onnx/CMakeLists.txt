@@ -7,6 +7,7 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(nav2_diffusion_core REQUIRED)
+find_package(pluginlib REQUIRED)
 
 # Optional backend: build only when onnxruntime is discoverable (onnxruntime_vendor,
 # a system install, or CMAKE_PREFIX_PATH / onnxruntime_DIR pointing at its config).
@@ -46,8 +47,10 @@ target_include_directories(${PROJECT_NAME} PUBLIC
   "$<BUILD_INTERFACE:${ONNXRUNTIME_CXX_INCLUDE_DIR}>"
   "$<INSTALL_INTERFACE:include>"
 )
-ament_target_dependencies(${PROJECT_NAME} nav2_diffusion_core)
+ament_target_dependencies(${PROJECT_NAME} nav2_diffusion_core pluginlib)
 target_link_libraries(${PROJECT_NAME} onnxruntime::onnxruntime)
+
+pluginlib_export_plugin_description_file(nav2_diffusion_core nav2_diffusion_onnx_plugin.xml)
 set_target_properties(${PROJECT_NAME} PROPERTIES
   BUILD_RPATH "${ONNXRUNTIME_LIB_DIR}"
   INSTALL_RPATH "${ONNXRUNTIME_LIB_DIR}")
@@ -63,10 +66,14 @@ install(
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
+install(
+  FILES nav2_diffusion_onnx_plugin.xml
+  DESTINATION share/${PROJECT_NAME}
+)
 
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_export_include_directories(include)
-ament_export_dependencies(nav2_diffusion_core)
+ament_export_dependencies(nav2_diffusion_core pluginlib)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

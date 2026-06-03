@@ -128,6 +128,11 @@ protected:
   double score_smoothness_weight_{0.1};
 
   std::shared_ptr<nav2_diffusion_core::TrajectoryModel> model_;
+  // Optional: load a TrajectoryModel via pluginlib (e.g. an ONNX backend)
+  // instead of the built-in FanRolloutModel, selected by the model_plugin param.
+  std::string model_plugin_;
+  std::string model_path_;
+  std::unique_ptr<pluginlib::ClassLoader<nav2_diffusion_core::TrajectoryModel>> model_loader_;
   std::shared_ptr<nav2_diffusion_safety::KinematicLimitsFilter> kinematic_filter_;
   std::shared_ptr<nav2_diffusion_safety::FootprintCollisionFilter> footprint_filter_;
 

@@ -1,0 +1,11 @@
+<library path="nav2_diffusion_onnx">
+  <class
+    type="nav2_diffusion_onnx::OnnxTrajectoryModel"
+    base_class_type="nav2_diffusion_core::TrajectoryModel">
+    <description>
+      ONNX Runtime generative trajectory model. Loaded by the controller via
+      pluginlib when model_plugin is set to this type; configure() takes the
+      ONNX model path.
+    </description>
+  </class>
+</library>

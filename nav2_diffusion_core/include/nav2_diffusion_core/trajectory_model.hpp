@@ -46,6 +46,12 @@ class TrajectoryModel
 public:
   virtual ~TrajectoryModel() = default;
 
+  /// One-time setup for pluginlib-loaded models. The argument is a model
+  /// resource locator (e.g. an ONNX file path); built-in analytic models ignore
+  /// it. Plugins are default-constructed, so any heavy initialization that needs
+  /// the model path belongs here, not in the constructor.
+  virtual void configure(const std::string & model_path) {(void)model_path;}
+
   /// Short identifier for diagnostics / model registry.
   virtual std::string name() const = 0;
 

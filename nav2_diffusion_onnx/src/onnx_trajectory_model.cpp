@@ -20,11 +20,17 @@
 #include <string>
 #include <vector>
 
+#include "pluginlib/class_list_macros.hpp"
+
 namespace nav2_diffusion_onnx
 {
 
-OnnxTrajectoryModel::OnnxTrajectoryModel(const std::string & model_path, double time_step)
-: time_step_(time_step)
+OnnxTrajectoryModel::OnnxTrajectoryModel(const std::string & model_path)
+{
+  configure(model_path);
+}
+
+void OnnxTrajectoryModel::configure(const std::string & model_path)
 {
   env_ = std::make_shared<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "nav2_diffusion_onnx");
   Ort::SessionOptions options;
@@ -44,6 +50,9 @@ std::string OnnxTrajectoryModel::name() const
 std::vector<nav2_diffusion_core::Trajectory> OnnxTrajectoryModel::generate(
   const nav2_diffusion_core::ModelContext & context) const
 {
+  if (session_ == nullptr) {
+    return {};
+  }
   std::array<float, 4> input_values = {
     static_cast<float>(context.goal_x),
     static_cast<float>(context.goal_y),
@@ -72,6 +81,7 @@ std::vector<nav2_diffusion_core::Trajectory> OnnxTrajectoryModel::generate(
   if (shape.size() < 3) {
     return candidates;
   }
+  const double time_step = context.time_step > 1e-6 ? context.time_step : 0.1;
   const std::size_t num = static_cast<std::size_t>(shape[shape.size() - 3]);
   const std::size_t steps = static_cast<std::size_t>(shape[shape.size() - 2]);
   const std::size_t dim = static_cast<std::size_t>(shape[shape.size() - 1]);
@@ -86,7 +96,7 @@ std::vector<nav2_diffusion_core::Trajectory> OnnxTrajectoryModel::generate(
       point.x = data[base + 0];
       point.y = data[base + 1];
       point.yaw = dim > 2 ? data[base + 2] : 0.0;
-      point.time = static_cast<double>(h) * time_step_;
+      point.time = static_cast<double>(h) * time_step;
       trajectory.points.push_back(point);
     }
     candidates.push_back(trajectory);
@@ -95,3 +105,6 @@ std::vector<nav2_diffusion_core::Trajectory> OnnxTrajectoryModel::generate(
 }
 
 }  // namespace nav2_diffusion_onnx
+
+PLUGINLIB_EXPORT_CLASS(
+  nav2_diffusion_onnx::OnnxTrajectoryModel, nav2_diffusion_core::TrajectoryModel)
