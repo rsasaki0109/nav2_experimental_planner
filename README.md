@@ -65,6 +65,27 @@ Nav2 は ROS 2 移動ロボット開発の事実上の実用基盤であり、Sm
 
 ---
 
+## アーキテクチャ図
+
+生成モデルが提案し、決定論的安全層が検証し、Nav2 が実行するパイプライン（Controller Plugin / Mode A）:
+
+```mermaid
+flowchart LR
+  G["Goal / Global Path"] --> OB["Observation<br/>(local costmap, odom, TF)"]
+  OB --> M["TrajectoryModel (seam)<br/>FanRolloutModel → ONNX/PyTorch/TensorRT"]
+  M -->|"K candidates"| IV["Input-validity gate<br/>(stale TF/odom/costmap)"]
+  IV --> KN["Kinematic limits"]
+  KN --> FP["Footprint collision<br/>(local costmap)"]
+  FP --> SC["Scorer<br/>(progress + smoothness)"]
+  SC -->|"best"| EX["Command extractor"] --> CMD["cmd_vel"]
+  FP -->|"no safe candidate"| FB["Fallback<br/>(MPPI / RPP / stop)"]
+  FB --> CMD
+  M -.->|"candidates / SafetyState"| VIZ["RViz markers / rosbag"]
+```
+
+> **Learned models propose. Classical safety disposes. Nav2 executes.**
+> 学習モデル（`TrajectoryModel` の裏）を差し替えても、安全層・scoring・fallback・可視化はそのまま再利用できます。
+
 ## ドキュメント地図
 
 | ドキュメント | 内容 |

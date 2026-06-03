@@ -356,6 +356,31 @@ ONNX Runtime の TensorRT Execution Provider は NVIDIA TensorRT を使って ON
 
 ## 12. Repository Structure
 
+### パッケージ依存関係
+
+```mermaid
+flowchart TD
+  msgs["nav2_diffusion_msgs"]
+  core["nav2_diffusion_core<br/>(types, scorer, model seam)"]
+  safety["nav2_diffusion_safety"]
+  controller["nav2_diffusion_controller<br/>(Nav2 Controller plugin)"]
+  benchmarks["nav2_diffusion_benchmarks"]
+  rviz["nav2_diffusion_rviz_plugins"]
+  bringup["nav2_diffusion_bringup"]
+  training["nav2_diffusion_training<br/>(ament_python)"]
+
+  core --> safety
+  core --> controller
+  core --> benchmarks
+  msgs --> controller
+  safety --> controller
+  msgs --> rviz
+  controller --> bringup
+  rviz --> bringup
+```
+
+> ランタイム（core / safety / controller）は軽量 C++ 依存のみ。学習（training）は ament_python で分離され、ロボットには載らない（§12.2）。
+
 ### 12.1 Top-Level Structure
 
 | Path | 役割 |
