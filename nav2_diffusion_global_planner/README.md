@@ -44,7 +44,7 @@ Nav2 GlobalPlanner Plugin integration（Mode B）。
 
 ## 使い方（例）
 
-planner_server の `GridBased` plugin を差し替える:
+planner_server の `GridBased` plugin を差し替える（既定: 組み込み `FanPathModel`）:
 
 ```yaml
 planner_server:
@@ -57,6 +57,19 @@ planner_server:
       interpolation_resolution: 0.05
       allow_unknown: true
 ```
+
+### 学習済み生成パスモデル（ONNX）を使う
+
+`model_plugin` に `nav2_diffusion_onnx::OnnxPathModel` を指定すると、flow matching で学習した生成パスモデルを pluginlib で実行時ロードする（planner は onnxruntime に直接依存しない）。学習・export は `python3 -c "from nav2_diffusion_training.path_planners import train_and_export_path as t; t('path.onnx')"`。
+
+```yaml
+    GridBased:
+      plugin: "nav2_diffusion_global_planner::DiffusionGlobalPlanner"
+      model_plugin: "nav2_diffusion_onnx::OnnxPathModel"
+      model_path: "/abs/path/to/path.onnx"
+```
+
+モデルは goal-aligned frame で K 個の多峰な候補パスを生成し、backend が map frame へ戻す。**候補の検証・選択は変わらず決定論的安全層が担う**（モデルは提案するだけ）。契約は [../nav2_diffusion_onnx/README.md](../nav2_diffusion_onnx/README.md) を参照。
 
 ## 関連
 

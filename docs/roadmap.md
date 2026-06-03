@@ -23,7 +23,7 @@
 | OSS 運用（LICENSE/CI/docs/manifest/card/issue・PR・RFC/badge/release） | v0.5 | ✅ |
 | 実機 shadow mode / 実走行 benchmark numbers | v0.5/v1.0 | ⬜ 実機・実sim 環境が必要 |
 | TensorRT backend / Jetson 検証 | v1.0 | ⬜ |
-| Planner Plugin（Mode B） | v1.0 | ✅ 先取り（**生成型 GlobalPlanner**: パス候補提案 → costmap 検証 → 最短安全パス選択。`PathModel` seam、analytic placeholder + 学習モデル差し替え可。生成型 Nav2 GlobalPlanner は OSS 不在を確認した上での実装） |
+| Planner Plugin（Mode B） | v1.0 | ✅ 先取り（**生成型 GlobalPlanner**: パス候補提案 → costmap 検証 → 最短安全パス選択。`PathModel` seam、analytic placeholder + **学習済み生成パスモデル（flow matching → `OnnxPathModel`）** を pluginlib で差し替え可。生成型 Nav2 GlobalPlanner は OSS 不在を確認した上での実装） |
 | social metrics / human-aware | v2.0 | ⬜ 人トラッキング log が必要 |
 | world model planner | v2.0 | ⬜ 研究枠 |
 

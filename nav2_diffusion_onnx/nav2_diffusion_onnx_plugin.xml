@@ -8,4 +8,13 @@
       ONNX model path.
     </description>
   </class>
+  <class
+    type="nav2_diffusion_onnx::OnnxPathModel"
+    base_class_type="nav2_diffusion_core::PathModel">
+    <description>
+      ONNX Runtime generative global-path model (Nav2 Mode B). Loaded by the
+      DiffusionGlobalPlanner via pluginlib when model_plugin is set to this type;
+      configure() takes the ONNX model path.
+    </description>
+  </class>
 </library>

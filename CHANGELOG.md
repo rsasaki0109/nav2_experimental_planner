@@ -20,6 +20,15 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
   integration + costmap validation/fallback wrapper. Closed-loop integration
   tests run against a live `Costmap2DROS` (no Gazebo/GPU): straight path on a
   clear map, detour around a partial obstacle, and failure on a full wall.
+- **Learned generative path model for Mode B** — `PathFlowPlanner`
+  (`nav2_diffusion_training.path_planners`), a flow-matching model that proposes
+  K multimodal start→goal paths in a goal-aligned frame and exports to the ONNX
+  contract `context [1,2] -> paths [1,K,H,2]`; plus `OnnxPathModel`
+  (`nav2_diffusion_onnx`), a `nav2_diffusion_core::PathModel` ONNX backend that
+  runs it, rotates/translates each candidate back into the map frame, and snaps
+  endpoints onto start/goal. Set the planner's `model_plugin` to
+  `nav2_diffusion_onnx::OnnxPathModel` to use it (planner stays free of any
+  onnxruntime link, via pluginlib). Verified end to end in C++ gtests.
 - **Offline model-comparison leaderboard** — `tools/benchmark_models.py` +
   `nav2_diffusion_training.model_eval` (torch-free metrics: clearance, collision,
   progress, turning, success, safety-first ranking) trains the six generative
