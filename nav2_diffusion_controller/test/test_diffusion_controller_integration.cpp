@@ -145,6 +145,22 @@ protected:
     return path;
   }
 
+  // A global plan curving up and to the left (+x, +y) from the robot.
+  static nav_msgs::msg::Path leftCurvingPlan()
+  {
+    nav_msgs::msg::Path path;
+    path.header.frame_id = "map";
+    for (int i = 1; i <= 15; ++i) {
+      geometry_msgs::msg::PoseStamped pose;
+      pose.header.frame_id = "map";
+      pose.pose.position.x = kRobotX + 0.07 * i;
+      pose.pose.position.y = kRobotY + 0.07 * i;
+      pose.pose.orientation.w = 1.0;
+      path.poses.push_back(pose);
+    }
+    return path;
+  }
+
   static std::shared_ptr<rclcpp_lifecycle::LifecycleNode> node_;
   static std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros_;
   static std::shared_ptr<tf2_ros::Buffer> tf_;
@@ -195,6 +211,20 @@ TEST_F(DiffusionControllerIntegrationTest, StopsWhenNoPlan)
     robotPose(), geometry_msgs::msg::Twist(), nullptr);
 
   EXPECT_DOUBLE_EQ(cmd.twist.linear.x, 0.0);
+}
+
+TEST_F(DiffusionControllerIntegrationTest, SelectsTurningCandidateForOffAxisGoal)
+{
+  // With a clear costmap and a goal up-and-to-the-left, the multimodal scorer
+  // should pick a left-turning candidate (positive angular) that still advances.
+  clearCostmap();
+  controller_->setPlan(leftCurvingPlan());
+
+  const auto cmd = controller_->computeVelocityCommands(
+    robotPose(), geometry_msgs::msg::Twist(), nullptr);
+
+  EXPECT_GT(cmd.twist.linear.x, 0.0);
+  EXPECT_GT(cmd.twist.angular.z, 0.0);
 }
 
 TEST_F(DiffusionControllerIntegrationTest, StopsOnStalePose)

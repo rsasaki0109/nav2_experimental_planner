@@ -10,7 +10,8 @@ ROS 非依存に近い trajectory schema, scoring concept, shared utilities。
 
 - `nav2_diffusion_core/trajectory.hpp`: `TrajectoryPoint`（time-indexed SE(2) サンプル）と `Trajectory`（pose 列 + `model_score`）
 - `pathLength()` / `duration()` ユーティリティ
-- gtest（`test/test_trajectory.cpp`）
+- `nav2_diffusion_core/scoring.hpp`: Trajectory Scorer（§3.3）。`endpointDistance()` / `totalTurning()` / `scoreTrajectory()`（goal 接近 + smoothness の soft score）。安全は別層で担保し、これは soft preference のみ。
+- gtest（`test/test_trajectory.cpp`, `test/test_scoring.cpp`）
 
 ## 想定する責務
 

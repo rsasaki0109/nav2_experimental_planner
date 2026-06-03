@@ -16,11 +16,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "nav2_costmap_2d/costmap_2d.hpp"
+#include "nav2_diffusion_core/scoring.hpp"
 #include "nav2_util/node_utils.hpp"
 #include "pluginlib/class_list_macros.hpp"
 #include "tf2/LinearMath/Quaternion.h"
@@ -64,6 +67,12 @@ void DiffusionController::configure(
     node, plugin_name_ + ".data_timeout", rclcpp::ParameterValue(0.5));
   declare_parameter_if_not_declared(
     node, plugin_name_ + ".check_costmap_current", rclcpp::ParameterValue(false));
+  declare_parameter_if_not_declared(
+    node, plugin_name_ + ".num_candidates", rclcpp::ParameterValue(11));
+  declare_parameter_if_not_declared(
+    node, plugin_name_ + ".score_progress_weight", rclcpp::ParameterValue(1.0));
+  declare_parameter_if_not_declared(
+    node, plugin_name_ + ".score_smoothness_weight", rclcpp::ParameterValue(0.1));
 
   node->get_parameter(plugin_name_ + ".lookahead_distance", lookahead_distance_);
   node->get_parameter(plugin_name_ + ".desired_linear_speed", desired_linear_speed_);
@@ -75,6 +84,10 @@ void DiffusionController::configure(
   node->get_parameter(plugin_name_ + ".consider_unknown_lethal", consider_unknown_lethal_);
   node->get_parameter(plugin_name_ + ".data_timeout", data_timeout_);
   node->get_parameter(plugin_name_ + ".check_costmap_current", check_costmap_current_);
+  node->get_parameter(plugin_name_ + ".num_candidates", num_candidates_);
+  node->get_parameter(plugin_name_ + ".score_progress_weight", score_progress_weight_);
+  node->get_parameter(plugin_name_ + ".score_smoothness_weight", score_smoothness_weight_);
+  num_candidates_ = std::max(1, num_candidates_);
 
   kinematic_filter_ = std::make_shared<nav2_diffusion_safety::KinematicLimitsFilter>(
     max_linear_speed_, max_angular_speed_);
@@ -172,6 +185,38 @@ nav2_diffusion_core::Trajectory DiffusionController::rollout(
   return trajectory;
 }
 
+std::vector<DiffusionController::Candidate> DiffusionController::generateCandidates(
+  const geometry_msgs::msg::PoseStamped & carrot_base) const
+{
+  const double dx = carrot_base.pose.position.x;
+  const double dy = carrot_base.pose.position.y;
+  const double dist_sq = dx * dx + dy * dy;
+
+  const double linear = std::min(desired_linear_speed_, max_linear_speed_) * speed_limit_scale_;
+  const double nominal_curvature = dist_sq > 1e-6 ? 2.0 * dy / dist_sq : 0.0;
+  const double nominal_angular =
+    std::clamp(linear * nominal_curvature, -max_angular_speed_, max_angular_speed_);
+
+  std::vector<Candidate> candidates;
+  candidates.reserve(num_candidates_);
+  // Sample a fan of angular velocities spanning the robot's turn limits, always
+  // including the nominal pure-pursuit command. This is the placeholder for a
+  // learned model's multimodal trajectory distribution.
+  for (int i = 0; i < num_candidates_; ++i) {
+    double angular = nominal_angular;
+    if (num_candidates_ > 1) {
+      const double frac = static_cast<double>(i) / static_cast<double>(num_candidates_ - 1);
+      angular = -max_angular_speed_ + frac * (2.0 * max_angular_speed_);
+    }
+    Candidate candidate;
+    candidate.linear = linear;
+    candidate.angular = angular;
+    candidate.trajectory = rollout(linear, angular);
+    candidates.push_back(candidate);
+  }
+  return candidates;
+}
+
 nav2_diffusion_core::Trajectory DiffusionController::toGlobalFrame(
   const nav2_diffusion_core::Trajectory & base_trajectory,
   const geometry_msgs::msg::PoseStamped & robot_pose) const
@@ -246,85 +291,106 @@ geometry_msgs::msg::TwistStamped DiffusionController::computeVelocityCommands(
     return makeStopCommand();
   }
 
-  // Placeholder generative proposal: pure-pursuit command toward the carrot.
   const double dx = carrot.pose.position.x;
   const double dy = carrot.pose.position.y;
-  const double dist_sq = dx * dx + dy * dy;
-  if (dist_sq < 1e-6) {
+  if (dx * dx + dy * dy < 1e-6) {
     publishSafetyState(nav2_diffusion_msgs::msg::SafetyState::NOMINAL, "at goal");
     return makeStopCommand();
   }
 
-  double linear = std::min(desired_linear_speed_, max_linear_speed_) * speed_limit_scale_;
-  const double curvature = 2.0 * dy / dist_sq;
-  double angular = std::clamp(linear * curvature, -max_angular_speed_, max_angular_speed_);
+  // Multimodal proposal: generate K candidate trajectories (placeholder model).
+  const std::vector<Candidate> candidates = generateCandidates(carrot);
+  std::vector<bool> safe_flags(candidates.size(), false);
+  std::vector<std::string> rejection_reasons(candidates.size());
 
-  const nav2_diffusion_core::Trajectory candidate = rollout(linear, angular);
-
-  // Deterministic safety gate: kinematic limits first (cheap), then footprint
-  // collision against the live costmap (docs/safety.md section 8.2).
-  nav2_diffusion_safety::SafetyResult verdict = kinematic_filter_->check(candidate);
-  if (verdict.safe) {
-    const nav2_diffusion_core::Trajectory global_candidate = toGlobalFrame(candidate, pose);
+  // Deterministic safety gate per candidate: kinematic limits (cheap) first,
+  // then footprint collision against the live costmap under its mutex.
+  {
     auto * costmap = costmap_ros_->getCostmap();
     std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(*(costmap->getMutex()));
     footprint_filter_->setCostmap(costmap);
     footprint_filter_->setFootprint(costmap_ros_->getRobotFootprint());
-    verdict = footprint_filter_->check(global_candidate);
+    for (std::size_t i = 0; i < candidates.size(); ++i) {
+      auto verdict = kinematic_filter_->check(candidates[i].trajectory);
+      if (verdict.safe) {
+        verdict = footprint_filter_->check(toGlobalFrame(candidates[i].trajectory, pose));
+      }
+      safe_flags[i] = verdict.safe;
+      rejection_reasons[i] = verdict.rejection_reason;
+    }
   }
 
-  publishCandidates(candidate, verdict.safe, verdict.rejection_reason);
+  // Soft scoring: among safe candidates pick the one that reaches the carrot
+  // most directly and smoothly (docs/architecture.md section 4.1 step 7).
+  const nav2_diffusion_core::ScoringWeights weights{
+    score_progress_weight_, score_smoothness_weight_};
+  int best_index = -1;
+  double best_score = 0.0;
+  for (std::size_t i = 0; i < candidates.size(); ++i) {
+    if (!safe_flags[i]) {
+      continue;
+    }
+    const double score = nav2_diffusion_core::scoreTrajectory(
+      candidates[i].trajectory, dx, dy, weights);
+    if (best_index < 0 || score > best_score) {
+      best_index = static_cast<int>(i);
+      best_score = score;
+    }
+  }
 
-  if (!verdict.safe) {
-    RCLCPP_WARN(
-      logger_, "No safe candidate (%s); stopping", verdict.rejection_reason.c_str());
-    publishSafetyState(
-      nav2_diffusion_msgs::msg::SafetyState::BRAKE, verdict.rejection_reason);
+  publishCandidates(candidates, safe_flags, rejection_reasons, best_index);
+
+  if (best_index < 0) {
+    RCLCPP_WARN(logger_, "No safe candidate among %zu; stopping", candidates.size());
+    publishSafetyState(nav2_diffusion_msgs::msg::SafetyState::BRAKE, "no safe candidate");
     return makeStopCommand();
   }
 
   geometry_msgs::msg::TwistStamped cmd;
   cmd.header.frame_id = base_frame_;
   cmd.header.stamp = clock_->now();
-  cmd.twist.linear.x = linear;
-  cmd.twist.angular.z = angular;
+  cmd.twist.linear.x = candidates[best_index].linear;
+  cmd.twist.angular.z = candidates[best_index].angular;
   publishSafetyState(nav2_diffusion_msgs::msg::SafetyState::NOMINAL, "");
   return cmd;
 }
 
 void DiffusionController::publishCandidates(
-  const nav2_diffusion_core::Trajectory & trajectory,
-  bool safe, const std::string & rejection_reason) const
+  const std::vector<Candidate> & candidates,
+  const std::vector<bool> & safe_flags,
+  const std::vector<std::string> & rejection_reasons,
+  int best_index) const
 {
   if (!candidates_pub_ || candidates_pub_->get_subscription_count() == 0) {
     return;
   }
 
-  nav2_diffusion_msgs::msg::TrajectoryCandidate candidate;
-  candidate.header.frame_id = base_frame_;
-  candidate.header.stamp = clock_->now();
-  candidate.model_score = trajectory.model_score;
-  for (const auto & point : trajectory.points) {
-    geometry_msgs::msg::Pose pose;
-    pose.position.x = point.x;
-    pose.position.y = point.y;
-    tf2::Quaternion q;
-    q.setRPY(0.0, 0.0, point.yaw);
-    pose.orientation = tf2::toMsg(q);
-    candidate.poses.push_back(pose);
-
-    builtin_interfaces::msg::Duration offset;
-    offset.sec = static_cast<int32_t>(point.time);
-    offset.nanosec = static_cast<uint32_t>((point.time - offset.sec) * 1e9);
-    candidate.time_offsets.push_back(offset);
-  }
-
   nav2_diffusion_msgs::msg::TrajectoryCandidates msg;
-  msg.header = candidate.header;
-  msg.candidates.push_back(candidate);
-  msg.safe_flags.push_back(safe);
-  msg.rejection_reasons.push_back(rejection_reason);
-  msg.best_index = safe ? 0 : -1;
+  msg.header.frame_id = base_frame_;
+  msg.header.stamp = clock_->now();
+  msg.best_index = best_index;
+  for (std::size_t i = 0; i < candidates.size(); ++i) {
+    nav2_diffusion_msgs::msg::TrajectoryCandidate candidate;
+    candidate.header = msg.header;
+    candidate.model_score = candidates[i].trajectory.model_score;
+    for (const auto & point : candidates[i].trajectory.points) {
+      geometry_msgs::msg::Pose pose;
+      pose.position.x = point.x;
+      pose.position.y = point.y;
+      tf2::Quaternion q;
+      q.setRPY(0.0, 0.0, point.yaw);
+      pose.orientation = tf2::toMsg(q);
+      candidate.poses.push_back(pose);
+
+      builtin_interfaces::msg::Duration offset;
+      offset.sec = static_cast<int32_t>(point.time);
+      offset.nanosec = static_cast<uint32_t>((point.time - offset.sec) * 1e9);
+      candidate.time_offsets.push_back(offset);
+    }
+    msg.candidates.push_back(candidate);
+    msg.safe_flags.push_back(i < safe_flags.size() ? safe_flags[i] : false);
+    msg.rejection_reasons.push_back(i < rejection_reasons.size() ? rejection_reasons[i] : "");
+  }
   candidates_pub_->publish(std::move(msg));
 }
 

@@ -10,10 +10,12 @@ Nav2 Controller Plugin integration。
 
 `nav2_diffusion_controller::DiffusionController` がパイプラインを配線済み:
 
-1. **提案**: lookahead 点へ向かう候補軌道を生成（**生成モデルのプレースホルダ**。現状は pure-pursuit 風の単一候補で、後で学習モデルに差し替える）
-2. **入力検証**: stale-data ゲート（robot pose/odom/TF の鮮度、costmap current。§7.4 Runtime Gating）→ `KinematicLimitsFilter`（速度上限）→ `FootprintCollisionFilter`（Local Costmap への footprint 衝突判定、costmap mutex を保持して実行）
-3. **抽出**: 安全なら `cmd_vel`、**安全候補が無ければ stop（fallback）**
-4. **可観測性**: 候補軌道（`TrajectoryCandidates`）と `SafetyState` を publish（RViz / rosbag 用）
+1. **提案（multimodal）**: lookahead 点へ向かう **K 個の候補軌道**を生成（**生成モデルのプレースホルダ**。現状は角速度をファン状にサンプルして直進/左/右の複数モードを作り、後で学習モデルの multimodal 出力に差し替える）
+2. **入力検証**: stale-data ゲート（robot pose/odom/TF の鮮度、costmap current。§7.4 Runtime Gating）
+3. **検証（候補ごと）**: `KinematicLimitsFilter`（速度上限）→ `FootprintCollisionFilter`（Local Costmap への footprint 衝突判定、costmap mutex を保持して実行）
+4. **選択（scoring）**: 安全な候補を `nav2_diffusion_core` の Trajectory Scorer（goal への接近 + smoothness）で評価し best を選ぶ（§4.1 step 7）
+5. **抽出**: best 候補から `cmd_vel`、**安全候補が無ければ stop（fallback）**
+6. **可観測性**: 全候補（`TrajectoryCandidates`、safe_flags / rejection_reasons / best_index）と `SafetyState` を publish（RViz / rosbag 用）
 
 `ros2 run nav2_util ...` ではなく Nav2 controller_server にプラグインとしてロードされる。`ros2 plugin list` で `nav2_core::Controller` として発見されることを確認済み。
 
@@ -25,6 +27,7 @@ Nav2 Controller Plugin integration。
 - 前方 ~0.4m に lethal 障害物 → footprint ゲートが発火し stop（`cmd_vel = 0`）
 - global path 無し → stop
 - robot pose が古い（`data_timeout` 超過）→ stale-data ゲートで stop
+- オフ軸（左上）ゴール → scorer が**旋回候補**を選択（`angular.z > 0` で前進）
 
 ### 使い方（例）
 
@@ -44,6 +47,9 @@ Nav2 Controller Plugin integration。
 | `consider_unknown_lethal` | false | costmap の unknown セルを衝突扱いするか |
 | `data_timeout` | 0.5 | robot pose（odom/TF）の鮮度タイムアウト [s]。超過で stop。0 で無効 |
 | `check_costmap_current` | false | costmap が current でない場合に stop（opt-in の多重防御） |
+| `num_candidates` | 11 | 生成する候補軌道数（角速度ファンのサンプル数） |
+| `score_progress_weight` | 1.0 | scoring: goal 接近の重み |
+| `score_smoothness_weight` | 0.1 | scoring: 旋回量ペナルティの重み |
 
 ## v0.1 スコープ
 

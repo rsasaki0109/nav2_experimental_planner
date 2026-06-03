@@ -115,6 +115,9 @@ controller_server:
       consider_unknown_lethal: false
       data_timeout: 0.5
       check_costmap_current: false
+      num_candidates: 11
+      score_progress_weight: 1.0
+      score_smoothness_weight: 0.1
 local_costmap:
   local_costmap:
     ros__parameters:

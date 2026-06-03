@@ -9,6 +9,7 @@ find_package(ament_cmake REQUIRED)
 
 add_library(${PROJECT_NAME} SHARED
   src/trajectory.cpp
+  src/scoring.cpp
 )
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
 target_include_directories(${PROJECT_NAME} PUBLIC
@@ -38,6 +39,9 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   ament_add_gtest(test_trajectory test/test_trajectory.cpp)
   target_link_libraries(test_trajectory ${PROJECT_NAME})
+
+  ament_add_gtest(test_scoring test/test_scoring.cpp)
+  target_link_libraries(test_scoring ${PROJECT_NAME})
 endif()
 
 ament_package()
