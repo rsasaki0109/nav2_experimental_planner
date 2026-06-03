@@ -36,3 +36,4 @@ jobs:
             nav2_diffusion_safety
             nav2_diffusion_controller
             nav2_diffusion_bringup
+            nav2_diffusion_benchmarks
