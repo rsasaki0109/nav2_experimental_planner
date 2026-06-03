@@ -38,6 +38,12 @@ TRAJ = HORIZON * DIM
 DIFFUSION_STEPS = 16
 COSTMAP_SIZE = 32            # egocentric costmap patch side length [cells]
 COSTMAP_EMBED = 16
+# DDIM x0 thresholding bound [m]. The cosine schedule's final alpha_bar is ~0,
+# so x0 = (x - sqrt(1-ab) * eps) / sqrt(ab) divides by ~0 and amplifies any eps
+# error into a non-physical trajectory. Local trajectories live well within a
+# couple of metres, so clamping x0 each step keeps sampling numerically stable
+# (standard static thresholding) without distorting the valid range.
+X0_CLAMP = 3.0
 
 
 class _MLP(nn.Module):
@@ -134,7 +140,7 @@ class DiffusionPlanner(nn.Module):
             ab = self.alpha_bar[i]
             t = torch.full((x.shape[0], 1), float(i) / DIFFUSION_STEPS)
             eps = self.eps(x, context, t)
-            x0 = (x - (1 - ab).sqrt() * eps) / ab.sqrt()
+            x0 = ((x - (1 - ab).sqrt() * eps) / ab.sqrt()).clamp(-X0_CLAMP, X0_CLAMP)
             if j + 1 < self.sample_steps:
                 ab_next = self.alpha_bar[int(idx[j + 1])]
                 x = ab_next.sqrt() * x0 + (1 - ab_next).sqrt() * eps
@@ -280,7 +286,7 @@ class CostmapDiffusionPlanner(nn.Module):
                 ab = self.alpha_bar[i]
                 t = torch.full((x.shape[0], 1), float(i) / DIFFUSION_STEPS)
                 eps = self.eps(torch.cat([x, context, embed, t], dim=-1))
-                x0 = (x - (1 - ab).sqrt() * eps) / ab.sqrt()
+                x0 = ((x - (1 - ab).sqrt() * eps) / ab.sqrt()).clamp(-X0_CLAMP, X0_CLAMP)
                 if j + 1 < self.sample_steps:
                     ab_n = self.alpha_bar[int(idx[j + 1])]
                     x = ab_n.sqrt() * x0 + (1 - ab_n).sqrt() * eps
