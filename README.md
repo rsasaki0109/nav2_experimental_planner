@@ -1,5 +1,10 @@
 # nav2_diffusion_planner
 
+[![CI](https://github.com/rsasaki0109/nav2_diffusion_planner/actions/workflows/ci.yml/badge.svg)](https://github.com/rsasaki0109/nav2_diffusion_planner/actions/workflows/ci.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/rsasaki0109/nav2_diffusion_planner)](https://github.com/rsasaki0109/nav2_diffusion_planner/releases)
+[![ROS 2 Jazzy](https://img.shields.io/badge/ROS_2-Jazzy-22314E?logo=ros&logoColor=white)](https://docs.ros.org/en/jazzy/)
+
 **Nav2向け Generative Navigation Framework**
 
 > Learned models propose. Classical safety disposes. Nav2 executes.
