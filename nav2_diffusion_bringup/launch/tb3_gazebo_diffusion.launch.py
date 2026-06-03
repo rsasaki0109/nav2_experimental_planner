@@ -27,6 +27,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
 
 
 def generate_launch_description():
@@ -38,6 +39,7 @@ def generate_launch_description():
     params_file = LaunchConfiguration('params_file')
     use_rviz = LaunchConfiguration('use_rviz')
     headless = LaunchConfiguration('headless')
+    candidates_topic = LaunchConfiguration('candidates_topic')
 
     declare_params_file_cmd = DeclareLaunchArgument(
         'params_file',
@@ -49,6 +51,11 @@ def generate_launch_description():
     )
     declare_headless_cmd = DeclareLaunchArgument(
         'headless', default_value='True', description='Run Gazebo server without the GUI client'
+    )
+    declare_candidates_topic_cmd = DeclareLaunchArgument(
+        'candidates_topic',
+        default_value='/FollowPath/trajectory_candidates',
+        description='Topic the controller publishes trajectory candidates on',
     )
 
     gazebo_sim = IncludeLaunchDescription(
@@ -62,9 +69,24 @@ def generate_launch_description():
         }.items(),
     )
 
+    # Republish candidate trajectories as RViz markers (add a MarkerArray display
+    # on /candidate_markers to see best=green / safe=blue / rejected=red).
+    candidate_markers = Node(
+        package='nav2_diffusion_rviz_plugins',
+        executable='candidate_markers',
+        name='candidate_markers',
+        output='screen',
+        parameters=[{
+            'input_topic': candidates_topic,
+            'output_topic': '/candidate_markers',
+        }],
+    )
+
     return LaunchDescription([
         declare_params_file_cmd,
         declare_use_rviz_cmd,
         declare_headless_cmd,
+        declare_candidates_topic_cmd,
         gazebo_sim,
+        candidate_markers,
     ])

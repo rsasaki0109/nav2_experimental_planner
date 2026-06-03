@@ -17,6 +17,7 @@
   <exec_depend>nav2_bringup</exec_depend>
   <exec_depend>nav2_minimal_tb3_sim</exec_depend>
   <exec_depend>nav2_diffusion_controller</exec_depend>
+  <exec_depend>nav2_diffusion_rviz_plugins</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
 

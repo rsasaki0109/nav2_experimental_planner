@@ -55,6 +55,8 @@ ros2 launch nav2_diffusion_bringup tb3_gazebo_diffusion.launch.py headless:=True
 
 RViz の "2D Pose Estimate" で初期姿勢、"Nav2 Goal" でゴールを与えると走行します。
 
+demo launch は `candidate_markers` ノードも起動します。RViz に **MarkerArray display** を追加して `/candidate_markers` を指定すると、候補軌道が **best=緑 / safe=青 / rejected=赤** で表示されます（[../nav2_diffusion_rviz_plugins/README.md](../nav2_diffusion_rviz_plugins/README.md)）。controller の候補トピックが異なる場合は `candidates_topic:=...` で指定してください。
+
 ## 安全性の前提（必読）
 
 - これは安全認証済み製品ではありません。実機では hardware EStop・速度制限・ODD 定義・現場 risk assessment が必須です（[safety.md](safety.md)）。
