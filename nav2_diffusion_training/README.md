@@ -12,8 +12,17 @@ dataset, training, export pipeline。
   - `TrackState`（time, x, y, yaw）
   - `build_samples(track, history, horizon, stride)`: 各 anchor で **observation_window（過去の絶対 pose 列）** と **action_label（base frame に変換した未来軌道）** を生成（§6.3 schema / §4.4 SE(2)）
   - `save_jsonl(samples, path)`: JSON Lines 書き出し
-  - stdlib のみ（依存軽量）。rosbag 取り込みは `TrackState` 列を作る薄い adapter として上に載せる
-- pytest（`test/test_dataset.py`）+ ament lint（copyright / flake8 / pep257）
+  - stdlib のみ（依存軽量）
+- `nav2_diffusion_training.rosbag_io`: `track_from_bag(bag_uri, topic='/odom')` — rosbag2 の odometry トピックを `TrackState` 列へ取り込む薄い adapter（§6.2）。`rosbag2_py` / `rclpy` serialization を使用。dataset 本体とは別モジュールなので、rosbag2_py 無しでも dataset は使える。
+- pytest（`test/test_dataset.py`, `test/test_rosbag_io.py`：小バッグ書込→読込の往復）+ ament lint（copyright / flake8 / pep257）
+
+```python
+from nav2_diffusion_training.rosbag_io import track_from_bag
+from nav2_diffusion_training import build_samples, save_jsonl
+
+track = track_from_bag('my_run_bag', topic='/odom')
+save_jsonl(build_samples(track, history=4, horizon=20), 'dataset.jsonl')
+```
 
 ## 想定する内容
 
