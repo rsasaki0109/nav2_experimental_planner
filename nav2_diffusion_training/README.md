@@ -15,7 +15,17 @@ dataset, training, export pipeline。
   - stdlib のみ（依存軽量）
 - `nav2_diffusion_training.rosbag_io`: `track_from_bag(bag_uri, topic='/odom')` — rosbag2 の odometry トピックを `TrackState` 列へ取り込む薄い adapter（§6.2）。`rosbag2_py` / `rclpy` serialization を使用。dataset 本体とは別モジュールなので、rosbag2_py 無しでも dataset は使える。
 - `nav2_diffusion_training.experts`: sim 不要の rule-based expert（§6.5）。`unicycle_to_goal(start, goal_x, goal_y, ...)` が start→goal を unicycle 追従する expert track を生成。`build_samples` に渡せば**合成 imitation データセット**を sim 無しで作れる。
-- pytest（`test/test_dataset.py`, `test/test_rosbag_io.py`, `test/test_experts.py`）+ ament lint（copyright / flake8 / pep257）
+- `nav2_diffusion_training.train`: 最小の PyTorch 学習 + ONNX export（§6.4）。synthetic expert データで `TinyPlanner` を学習し、**C++ `OnnxTrajectoryModel` と同じ I/O 契約**（context `[1,4]` → trajectories `[1,K,H,3]`）で ONNX 出力。`train_and_export(path)` で一発。PyTorch は重い optional 依存のため `__init__` からは import せず、テストは torch 不在時に自動 skip（CI など）。
+- pytest（`test/test_dataset.py`, `test/test_rosbag_io.py`, `test/test_experts.py`, `test/test_train.py`）+ ament lint（copyright / flake8 / pep257）
+
+### 学習↔推論の一周（検証済み）
+
+```
+expert (unicycle_to_goal) → build_samples → train_and_export(ONNX)
+  → nav2_diffusion_onnx::OnnxTrajectoryModel が同じ契約でロード → controller の生成段
+```
+
+`test_train.py` は train → ONNX export → onnxruntime ロードで出力形状が契約（`[1,K,H,3]`）に一致することを検証する。
 
 ```python
 from nav2_diffusion_training.rosbag_io import track_from_bag
