@@ -110,6 +110,16 @@ flowchart LR
   CT --> RUN["safety gate → scoring → cmd_vel"]
 ```
 
+## costmap 条件付き生成（OSS-gap 実装）
+
+<p align="center">
+  <img src="docs/costmap_demo.gif" width="480" alt="costmap-conditioned CostmapFlowPlanner: as the obstacle sweeps left/right, the generated candidates veer to the opposite side">
+</p>
+
+<p align="center"><em>出荷モデル <code>CostmapFlowPlanner</code>（flow matching + egocentric costmap エンコーダ）そのものの出力。障害物（赤）が左右に動くと、生成された候補軌道が反対側へ veer する＝ costmap に条件付いた回避を学習している。再現は <a href="tools/costmap_demo.py">tools/costmap_demo.py</a>。</em></p>
+
+調査（papers＋既存 OSS の突き合わせ）の結果、Nav2 地上ロボット向けの **flow / diffusion / consistency の local planner で公開実装が無い** ことを確認し、3系統＋costmap 条件付けを OSS-gap 実装として収録している（[docs/model_zoo.md](docs/model_zoo.md)）。
+
 ## ドキュメント地図
 
 | ドキュメント | 内容 |
