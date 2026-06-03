@@ -38,3 +38,4 @@ controller_server:
       horizon: 2.0
       time_step: 0.1
       transform_tolerance: 0.1
+      consider_unknown_lethal: false

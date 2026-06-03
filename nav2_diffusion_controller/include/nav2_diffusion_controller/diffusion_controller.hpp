@@ -26,6 +26,7 @@
 #include "nav2_diffusion_core/trajectory.hpp"
 #include "nav2_diffusion_msgs/msg/safety_state.hpp"
 #include "nav2_diffusion_msgs/msg/trajectory_candidates.hpp"
+#include "nav2_diffusion_safety/footprint_collision_filter.hpp"
 #include "nav2_diffusion_safety/kinematic_limits_filter.hpp"
 #include "nav_msgs/msg/path.hpp"
 #include "rclcpp/rclcpp.hpp"
@@ -78,6 +79,12 @@ protected:
   /// into a time-indexed SE(2) trajectory in the base frame.
   nav2_diffusion_core::Trajectory rollout(double linear, double angular) const;
 
+  /// Express a base-frame trajectory in the costmap global frame using the
+  /// robot's current global pose (for footprint collision checking).
+  nav2_diffusion_core::Trajectory toGlobalFrame(
+    const nav2_diffusion_core::Trajectory & base_trajectory,
+    const geometry_msgs::msg::PoseStamped & robot_pose) const;
+
   /// Publish candidates (with safety verdict) for RViz / rosbag observability.
   void publishCandidates(
     const nav2_diffusion_core::Trajectory & trajectory,
@@ -105,8 +112,10 @@ protected:
   double time_step_{0.1};
   double transform_tolerance_{0.1};
   double speed_limit_scale_{1.0};
+  bool consider_unknown_lethal_{false};
 
   std::shared_ptr<nav2_diffusion_safety::KinematicLimitsFilter> kinematic_filter_;
+  std::shared_ptr<nav2_diffusion_safety::FootprintCollisionFilter> footprint_filter_;
 
   std::shared_ptr<
     rclcpp_lifecycle::LifecyclePublisher<nav2_diffusion_msgs::msg::TrajectoryCandidates>>

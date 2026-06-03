@@ -20,6 +20,7 @@
 #include <string>
 #include <utility>
 
+#include "nav2_costmap_2d/costmap_2d.hpp"
 #include "nav2_util/node_utils.hpp"
 #include "pluginlib/class_list_macros.hpp"
 #include "tf2/LinearMath/Quaternion.h"
@@ -57,6 +58,8 @@ void DiffusionController::configure(
     node, plugin_name_ + ".time_step", rclcpp::ParameterValue(0.1));
   declare_parameter_if_not_declared(
     node, plugin_name_ + ".transform_tolerance", rclcpp::ParameterValue(0.1));
+  declare_parameter_if_not_declared(
+    node, plugin_name_ + ".consider_unknown_lethal", rclcpp::ParameterValue(false));
 
   node->get_parameter(plugin_name_ + ".lookahead_distance", lookahead_distance_);
   node->get_parameter(plugin_name_ + ".desired_linear_speed", desired_linear_speed_);
@@ -65,9 +68,13 @@ void DiffusionController::configure(
   node->get_parameter(plugin_name_ + ".horizon", horizon_);
   node->get_parameter(plugin_name_ + ".time_step", time_step_);
   node->get_parameter(plugin_name_ + ".transform_tolerance", transform_tolerance_);
+  node->get_parameter(plugin_name_ + ".consider_unknown_lethal", consider_unknown_lethal_);
 
   kinematic_filter_ = std::make_shared<nav2_diffusion_safety::KinematicLimitsFilter>(
     max_linear_speed_, max_angular_speed_);
+  footprint_filter_ = std::make_shared<nav2_diffusion_safety::FootprintCollisionFilter>(
+    costmap_ros_->getCostmap(), costmap_ros_->getRobotFootprint(),
+    253.0, consider_unknown_lethal_);
 
   candidates_pub_ = node->create_publisher<nav2_diffusion_msgs::msg::TrajectoryCandidates>(
     plugin_name_ + "/trajectory_candidates", 1);
@@ -83,6 +90,7 @@ void DiffusionController::cleanup()
   candidates_pub_.reset();
   safety_pub_.reset();
   kinematic_filter_.reset();
+  footprint_filter_.reset();
 }
 
 void DiffusionController::activate()
@@ -158,6 +166,32 @@ nav2_diffusion_core::Trajectory DiffusionController::rollout(
   return trajectory;
 }
 
+nav2_diffusion_core::Trajectory DiffusionController::toGlobalFrame(
+  const nav2_diffusion_core::Trajectory & base_trajectory,
+  const geometry_msgs::msg::PoseStamped & robot_pose) const
+{
+  const auto & q = robot_pose.pose.orientation;
+  const double yaw0 =
+    std::atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z));
+  const double cos0 = std::cos(yaw0);
+  const double sin0 = std::sin(yaw0);
+  const double x0 = robot_pose.pose.position.x;
+  const double y0 = robot_pose.pose.position.y;
+
+  nav2_diffusion_core::Trajectory global;
+  global.model_score = base_trajectory.model_score;
+  global.points.reserve(base_trajectory.points.size());
+  for (const auto & p : base_trajectory.points) {
+    nav2_diffusion_core::TrajectoryPoint gp;
+    gp.x = x0 + p.x * cos0 - p.y * sin0;
+    gp.y = y0 + p.x * sin0 + p.y * cos0;
+    gp.yaw = yaw0 + p.yaw;
+    gp.time = p.time;
+    global.points.push_back(gp);
+  }
+  return global;
+}
+
 geometry_msgs::msg::TwistStamped DiffusionController::makeStopCommand() const
 {
   geometry_msgs::msg::TwistStamped cmd;
@@ -199,7 +233,19 @@ geometry_msgs::msg::TwistStamped DiffusionController::computeVelocityCommands(
   double angular = std::clamp(linear * curvature, -max_angular_speed_, max_angular_speed_);
 
   const nav2_diffusion_core::Trajectory candidate = rollout(linear, angular);
-  const auto verdict = kinematic_filter_->check(candidate);
+
+  // Deterministic safety gate: kinematic limits first (cheap), then footprint
+  // collision against the live costmap (docs/safety.md section 8.2).
+  nav2_diffusion_safety::SafetyResult verdict = kinematic_filter_->check(candidate);
+  if (verdict.safe) {
+    const nav2_diffusion_core::Trajectory global_candidate = toGlobalFrame(candidate, pose);
+    auto * costmap = costmap_ros_->getCostmap();
+    std::lock_guard<nav2_costmap_2d::Costmap2D::mutex_t> lock(*(costmap->getMutex()));
+    footprint_filter_->setCostmap(costmap);
+    footprint_filter_->setFootprint(costmap_ros_->getRobotFootprint());
+    verdict = footprint_filter_->check(global_candidate);
+  }
+
   publishCandidates(candidate, verdict.safe, verdict.rejection_reason);
 
   if (!verdict.safe) {

@@ -10,7 +10,8 @@ safety gate, collision validation integration。
 
 - `safety_filter.hpp`: `SafetyFilter` 抽象インターフェースと `SafetyResult`（safe / rejection_reason）
 - `kinematic_limits_filter.hpp/.cpp`: 線速度・角速度の上限超過を棄却する `KinematicLimitsFilter`（Kinematic Safety Layer、[../docs/safety.md](../docs/safety.md) §8.2）
-- gtest（`test/test_kinematic_limits_filter.cpp`）
+- `footprint_collision_filter.hpp/.cpp`: `nav2_costmap_2d` の `FootprintCollisionChecker` を用い、向き付き footprint が costmap の lethal セルと衝突する候補を棄却する `FootprintCollisionFilter`（Footprint Collision Layer、§8.2）。costmap を runtime truth source として扱う（[../docs/architecture.md](../docs/architecture.md) §3.4）。呼び出し側が costmap mutex を保持すること。
+- gtest（`test/test_kinematic_limits_filter.cpp`, `test/test_footprint_collision_filter.cpp`）
 
 > **The learned planner is never the final authority.**（[../docs/safety.md](../docs/safety.md) §8.1）
 
