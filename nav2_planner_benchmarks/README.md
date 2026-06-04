@@ -12,13 +12,13 @@ ros2 run nav2_planner_benchmarks planner_benchmark > docs/planner_comparison.md
 
 結果は [../docs/planner_comparison.md](../docs/planner_comparison.md)（コミット済み・再現可能）。
 
-reactive Controller（VFH+ / ND）の閉ループ比較も同梱:
+局所 Controller（reactive **VFH+ / ND** + 生成型 **Mode A learned / hybrid**）の閉ループ比較も同梱:
 
 ```bash
 ros2 run nav2_planner_benchmarks controller_benchmark > docs/controller_comparison.md
 ```
 
-unicycle モデルで costmap 上をロールアウトし、到達可否・経路長・最小クリアランス・操舵の滑らかさ・回廊中央寄せを計測する。結果は [../docs/controller_comparison.md](../docs/controller_comparison.md)。
+unicycle モデルで costmap 上をロールアウトし、到達可否・経路長・最小クリアランス・操舵の滑らかさ・回廊中央寄せを計測する。結果は [../docs/controller_comparison.md](../docs/controller_comparison.md)。**learned** は open で goal 到達するが障害物では安全停止、**hybrid**（learned + VFH+ fallback）は全シナリオ到達 — Mode B planner の hybrid と対称（[../docs/generative_limits.md](../docs/generative_limits.md)）。
 
 ## 比較対象（すべて Nav2 公式に無い `nav2_core::GlobalPlanner`）
 

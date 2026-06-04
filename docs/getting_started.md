@@ -110,6 +110,8 @@ controller_server:
 
 モデルが costmap を読んで障害物の反対側へ軌道を提案し、決定論的安全層(kinematic + footprint)が検証する。閉ループでは open シナリオで goal に到達し、障害物シナリオでは安全層が手前で安全停止する(小型研究モデルの限界)。挙動・限界は [model_card](../model_zoo/diffusion_local/model_card.md) を参照。`OnnxTrajectoryModel` は `nav2_diffusion_onnx` + onnxruntime が必要。
 
+さらに `fallback_controller_plugin: "nav2_vfh_controller::VFHController"` を足すと **hybrid**(安全候補が無ければ classical reactive controller へ委譲)になり、障害物シナリオも回避して全シナリオ goal 到達(比較表の *Mode A, hybrid* 行、[generative_limits.md](generative_limits.md))。Mode B planner の hybrid と対称。
+
 ### 登録確認
 
 ```bash

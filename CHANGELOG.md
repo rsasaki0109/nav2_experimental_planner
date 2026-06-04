@@ -8,6 +8,15 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
 ### Added
 
+- **Hybrid Mode A controller (generative propose → classical reactive dispose).**
+  `controller_benchmark` adds a *Diffusion (Mode A, hybrid)* entry: the learned
+  `DiffusionController` with `fallback_controller_plugin` set to VFH+ (the param
+  already existed; this exercises it). When no learned candidate is safe it
+  delegates to the classical reactive controller instead of stopping, so it
+  **reaches the goal in every scenario** — learned drives *open*, VFH+ threads the
+  obstacle scenarios (its corridor row matches VFH+ exactly, confirming the
+  fallback drove). This is the symmetric Mode A analogue of the hybrid Mode B
+  planner; both modes now complete every benchmark scenario via propose→dispose.
 - **Hybrid Mode B planner (generative propose → classical search dispose).**
   `DiffusionGlobalPlanner` gains a `fallback_planner_plugin` parameter: when no
   generative candidate is collision-free it delegates to a classical, complete

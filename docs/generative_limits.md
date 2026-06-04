@@ -12,7 +12,7 @@
 | 学習分布内の patch での**側選択の頑健性** | ✅ できる | 同上 |
 | Mode A: **open での閉ループ goal 到達** | ✅ できる（pure-pursuit 弧 expert で carrot 追従） | v0.6.0 出荷 |
 | Mode B: **off-centre gap（大迂回・スロット通過）** | ❌ 学習単体では天井 → ✅ **ハイブリッドで解決** | 下記参照 |
-| Mode A: **障害物のスレッディング（回り込み通過）** | ❌ 天井（安全層が手前で安全停止） | 下記参照 |
+| Mode A: **障害物のスレッディング（回り込み通過）** | ❌ 学習単体では天井 → ✅ **ハイブリッドで解決** | 下記参照 |
 
 要点: **side-selection と open goal 到達は小型モデルでも実機構で動く**。一方 **gap-routing と obstacle-threading は探索/分布シフトの問題**で、小型・合成学習モデル単体の天井。これは偶然ではなく、**classical search / reactive 法が本来勝つ領域**であり、本リポジトリが 8 種の classical planner と 2 種の reactive controller を併載する理由そのもの。そして **ハイブリッド**（generative 提案 + classical fallback）はこの天井を実際に超える: Mode B の off-centre gap / slalom は learned+JPS の hybrid が解く（後述）。
 
@@ -45,6 +45,8 @@ learned Mode A は open では goal 到達するが、`controller_benchmark` の
 
 単発の Mode B gap ですら転移しないことから、閉ループで誤差が累積する obstacle-threading は同じ（むしろ強い）天井。安全層（kinematic + footprint）が**衝突は常に防ぐ**点は意図どおり。
 
+**ただしハイブリッドで解決済み（✅）**: `DiffusionController` の `fallback_controller_plugin`（既存）に classical の reactive controller（VFH+ 等）を設定すると、安全候補が無いとき停止する代わりに委譲する。`controller_comparison.md` の **Diffusion (Mode A, hybrid)** 行は **全シナリオで goal 到達**（open は learned、障害物は VFH+ fallback が回避。corridor 行は VFH+ と完全一致 = fallback 稼働の証拠）。Mode B planner の hybrid と完全に対称。
+
 ## なぜ天井になるか（要因）
 
 1. **小型 CNN/MLP の容量**: encoder 16 次元・MLP 128 隠れ。薄い・部分的な障害物信号や gap 位置の汎化に弱い。
@@ -61,4 +63,4 @@ learned Mode A は open では goal 到達するが、`controller_benchmark` の
 
 ## 結論
 
-小型・合成学習モデルでも **side-selection と open goal 到達は実機構で動く**（v0.6.0 出荷）。**gap-routing と obstacle-threading は classical が勝つ探索/分布シフトの領域**で、学習単体の天井。だが **ハイブリッド**（`fallback_planner_plugin`：learned 提案 → classical search が完全性を保証）はその天井を実際に超え、Mode B は全シナリオを解く。この境界を正直に測り、両者を組み合わせて最良を取れること自体が「generative propose / classical dispose」設計の価値であり、両者を同一リポジトリ・同一土俵に載せている理由である。
+小型・合成学習モデルでも **side-selection と open goal 到達は実機構で動く**（v0.6.0 出荷）。**gap-routing と obstacle-threading は classical が勝つ探索/分布シフトの領域**で、学習単体の天井。だが **ハイブリッド**は両モードでその天井を実際に超える: Mode B planner は `fallback_planner_plugin`（learned 提案 → classical search が完全性を保証）で、Mode A controller は `fallback_controller_plugin`（learned → classical reactive が回避）で、いずれも**全シナリオを解く**。この境界を正直に測り、両者を組み合わせて最良を取れること自体が「generative propose / classical dispose」設計の価値であり、両者を同一リポジトリ・同一土俵に載せている理由である。

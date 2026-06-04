@@ -61,6 +61,7 @@ flowchart TD
 | 狭い回廊での中央寄せ・すり抜けと滑らかな操舵 | **[ND](../nav2_nd_controller)** | gap 選択＋安全偏向。閉ループ比較では VFH+ より滑らか |
 | 正面障害物に広いクリアランスで回避 | **[VFH+](../nav2_vfh_controller)** | 比較で frontal の最小クリアランスが大きい傾向 |
 | 学習モデルで multimodal 軌道提案＋決定論安全層 | **[生成型 Mode A](../nav2_diffusion_controller)** | 提案→安全ゲート→scoring→cmd_vel、no-safe なら fallback。解析的 fan か、[model_zoo](../model_zoo/diffusion_local) の costmap 条件付き **学習済み** 軌道モデル(`OnnxTrajectoryModel`)を選べる |
+| 生成の提案 ＋ 障害物での回避も両立 | **生成型 Mode A + `fallback_controller_plugin`(hybrid)** | learned → 安全候補が無ければ classical reactive(VFH+/ND)へ委譲。easy は learned、障害物は reactive が回避し全シナリオ到達([generative_limits.md](generative_limits.md)) |
 
 VFH+ と ND は実測で「berth（VFH+ が広め）」対「smoothness（ND が滑らか）」のトレードオフで、**一方的な優劣は無い**（[controller_comparison.md](controller_comparison.md)）。
 
