@@ -18,7 +18,7 @@
 
 `nav2_experimental_planner` は Nav2 を置き換えるプロジェクトではありません。Nav2 の既存アーキテクチャ（Behavior Tree / Lifecycle Node / Planner・Controller Plugin / Costmap / Collision Monitor）を最大限活かしたうえで、その上に **Diffusion / Flow Matching / Consistency / Transformer / World Model 系の生成型ナビゲーションモデルを安全に接続する** ための OSS 基盤です。
 
-加えて、**Nav2 公式に無い planner（生成型に限らず classical も）** を実験的に収録します。Nav2 がもたない classical planner として、**サンプリングベース**の **RRT\***（asymptotically optimal）と **RRT-Connect**（双方向・狭路で高速）を [nav2_rrt_planner](nav2_rrt_planner) に、**PRM**（Probabilistic Roadmap）を [nav2_prm_planner](nav2_prm_planner) に、**インクリメンタル探索**の **D\* Lite**（変化セルだけ修復し再計画コストを抑える）を [nav2_dstar_lite_planner](nav2_dstar_lite_planner) に、**グリッド探索高速化**の **JPS**（Jump Point Search、対称性枝刈りで A\* を高速化）を [nav2_jps_planner](nav2_jps_planner) に、それぞれ nav2_core::GlobalPlanner として実装済み。
+加えて、**Nav2 公式に無い planner（生成型に限らず classical も）** を実験的に収録します。Nav2 がもたない classical planner として、**サンプリングベース**の **RRT\***（asymptotically optimal）と **RRT-Connect**（双方向・狭路で高速）を [nav2_rrt_planner](nav2_rrt_planner) に、**PRM**（Probabilistic Roadmap）を [nav2_prm_planner](nav2_prm_planner) に、**インクリメンタル探索**の **D\* Lite**（変化セルだけ修復し再計画コストを抑える）を [nav2_dstar_lite_planner](nav2_dstar_lite_planner) に、**グリッド探索高速化**の **JPS**（Jump Point Search、対称性枝刈りで A\* を高速化）を [nav2_jps_planner](nav2_jps_planner) に、**any-angle** の **Lazy Theta\***（グリッド方向に縛られない直線経路、LOS 判定を遅延）を [nav2_lazy_theta_star_planner](nav2_lazy_theta_star_planner) に、それぞれ nav2_core::GlobalPlanner として実装済み。
 
 - **Scope:** AMR / Delivery Robot / Warehouse Robot / Service Robot
 - **Out of Scope:** Manipulation, MoveIt, Humanoid, Full VLA, Multi-Agent Planning（主目的としては扱わない）

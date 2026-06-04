@@ -1,0 +1,23 @@
+# Example Nav2 planner_server configuration using the LazyThetaStarPlanner, an
+# any-angle global planner. Upstream Nav2 ships eager Theta* in
+# nav2_theta_star_planner; this is the lazy variant (defers line-of-sight checks)
+# from nav2_experimental_planner. Drop-in replacement for the GridBased global
+# planner plugin. See nav2_lazy_theta_star_planner/README.md.
+#
+# Lazy Theta* lets a node's parent be any earlier node it has line of sight to,
+# so paths bend only at obstacle corners and run straight elsewhere (not confined
+# to the 8 grid directions). It assumes a uniform-cost grid, so it treats the
+# costmap as binary free/blocked (cells >= lethal_threshold are obstacles).
+
+planner_server:
+  ros__parameters:
+    expected_planner_frequency: 20.0
+    planner_plugins: ["GridBased"]
+    costmap_update_timeout: 1.0
+
+    GridBased:
+      plugin: "nav2_lazy_theta_star_planner::LazyThetaStarPlanner"
+      lethal_threshold: 253      # costs >= this are obstacles (default INSCRIBED)
+      allow_unknown: true        # treat unknown costmap cells as traversable
+      heuristic_weight: 1.0      # <=1 keeps the heuristic admissible
+      interpolation_resolution: 0.05   # path densification / line-of-sight step [m]

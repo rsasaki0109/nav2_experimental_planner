@@ -8,6 +8,20 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
 ### Added
 
+- **Classical Lazy Theta\* any-angle global planner** —
+  `nav2_lazy_theta_star_planner::LazyThetaStarPlanner`, an any-angle
+  `nav2_core::GlobalPlanner` in the new `nav2_lazy_theta_star_planner` package.
+  Theta* lets a node's parent be any earlier node it has line of sight to, so
+  paths bend only at obstacle corners instead of following the 8 grid directions;
+  the lazy variant (Nash, Koenig and Tovey, 2010) defers the line-of-sight check
+  to roughly one per expanded node. Upstream Nav2 ships eager Theta* in
+  nav2_theta_star_planner; this adds the distinct lazy variant. Line-of-sight is
+  sampled at the same resolution the path is densified at, so every accepted
+  segment stays collision-free. Treats the costmap as a binary free/blocked grid
+  (cells >= `lethal_threshold` are obstacles). Fully deterministic. Closed-loop
+  gtests vs a live `Costmap2DROS` (clear map, **single straight any-angle line to
+  an off-axis goal**, off-centre gap, solid wall, occupied goal, cancel),
+  registered via pluginlib, added to CI and a bringup planner_server example.
 - **Classical Jump Point Search (JPS) global planner** —
   `nav2_jps_planner::JPSPlanner`, an optimal grid-A* speed-up
   `nav2_core::GlobalPlanner` in the new `nav2_jps_planner` package. JPS (Harabor &

@@ -1,0 +1,15 @@
+<library path="nav2_lazy_theta_star_planner">
+  <class
+    type="nav2_lazy_theta_star_planner::LazyThetaStarPlanner"
+    base_class_type="nav2_core::GlobalPlanner">
+    <description>
+      Lazy Theta* any-angle global planner. Lets a node's parent be any earlier
+      node it has line of sight to, so paths bend only at obstacle corners and run
+      straight elsewhere (not confined to the 8 grid directions). The lazy variant
+      defers line-of-sight checks to about one per expanded node. Upstream Nav2
+      ships eager Theta*; this is the distinct lazy variant. Treats the costmap as
+      a binary free/blocked grid (cells >= lethal_threshold are obstacles).
+      Classical (non-learned). Throws NoValidPathCouldBeFound if no path is found.
+    </description>
+  </class>
+</library>

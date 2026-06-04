@@ -40,6 +40,7 @@ jobs:
             nav2_prm_planner
             nav2_dstar_lite_planner
             nav2_jps_planner
+            nav2_lazy_theta_star_planner
             nav2_diffusion_bringup
             nav2_diffusion_benchmarks
             nav2_diffusion_rviz_plugins
