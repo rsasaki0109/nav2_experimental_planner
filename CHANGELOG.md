@@ -6,6 +6,18 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
 ## [Unreleased]
 
+### Added
+
+- **`docs/generative_limits.md`** — an empirical note mapping where the small
+  synthetic learned models help (costmap side-selection in both modes; Mode A
+  open-scenario goal reaching) versus where they hit their ceiling (Mode B
+  off-centre-gap routing; Mode A obstacle threading), why (tiny-CNN brittleness,
+  synthetic→real patch transfer, single-shot vs search, closed-loop distribution
+  shift), and the concrete paths past it (bigger models + diverse real data,
+  closed-loop/DAgger training, generative-propose → classical-refine hybrid).
+  Documents the exploration behind v0.6.0's honest benchmark results. Linked from
+  the README docs map and the selection guide.
+
 ## [0.6.0] - 2026-06-04
 
 Theme: **the first learned models in the loop.** v0.4.0 added classical breadth and

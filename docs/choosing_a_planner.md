@@ -82,4 +82,6 @@ flowchart TD
 - sampling / 二値グリッド系（JPS / Lazy Theta\* / visibility graph）は costmap を**二値（free/blocked）**として扱い、inflation の段階コストを無視する。ソフトなコスト整形が要るなら **D\* Lite**（`cost_weight`）や **ARA\***（`cost_weight`）、または公式 NavFn/Smac を使う。
 - どの planner / controller も既存の Nav2 構成で **plugin を差し替えるだけ**で試せる（各パッケージ README と [../nav2_diffusion_bringup](../nav2_diffusion_bringup) の例 yaml）。
 
-関連: [architecture.md](architecture.md) / [planner_comparison.md](planner_comparison.md) / [controller_comparison.md](controller_comparison.md)
+生成型（Mode A/B の学習済みモデル）が**どこで効き、どこで classical が勝つか**の実証は [generative_limits.md](generative_limits.md) を参照（side-selection・open 到達は効く／gap-routing・obstacle-threading は classical 領域）。
+
+関連: [architecture.md](architecture.md) / [planner_comparison.md](planner_comparison.md) / [controller_comparison.md](controller_comparison.md) / [generative_limits.md](generative_limits.md)
