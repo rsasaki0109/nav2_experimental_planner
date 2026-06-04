@@ -26,6 +26,17 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
   `costmap-transformer` ranks **2nd** (success 1.00, zero collisions, single-step
   inference), just behind `costmap-consistency`, and `transformer` is the best of
   the context-only models — regenerated into `docs/model_comparison.md`.
+- **Transformer Mode A model shipped in the loop** — `model_zoo/diffusion_local_transformer/`
+  (`diffusion_local_costmap_transformer_v0`, ≈224 KB, GPU-trained, CPU-exported).
+  The transformer family is now a real learned model running through the C++
+  inference path, not just training code: a curated-zoo C++ test
+  (`CuratedZooTransformerVeersAwayFromObstacle`) guards the shipped binary, and a
+  `Diffusion (Mode A, transformer)` row in `docs/controller_comparison.md` shows it
+  reaching the goal closed-loop in the open scenario (equivalent to the flow Mode A
+  model — confirming the obstacle-scenario ceiling is the synthetic data / capacity,
+  not the model family).
+- GPU training support: `train_and_export_costmap(..., device=...)` trains on the
+  given device (e.g. `'cuda'`) and always exports on CPU for a portable artifact.
 
 ### Documentation
 - `docs/next_phase.md` — an execution plan for the data-/environment-dependent

@@ -129,7 +129,8 @@ if(BUILD_TESTING)
   target_link_libraries(test_onnx_trajectory_model ${PROJECT_NAME})
   target_compile_definitions(test_onnx_trajectory_model
     PRIVATE ONNX_TEST_MODEL="${_test_model}" ONNX_COSTMAP_MODEL="${_costmap_model}"
-            ONNX_ZOO_COSTMAP_MODEL="${CMAKE_CURRENT_SOURCE_DIR}/../model_zoo/diffusion_local/costmap_flow.onnx")
+            ONNX_ZOO_COSTMAP_MODEL="${CMAKE_CURRENT_SOURCE_DIR}/../model_zoo/diffusion_local/costmap_flow.onnx"
+            ONNX_ZOO_COSTMAP_TRANSFORMER_MODEL="${CMAKE_CURRENT_SOURCE_DIR}/../model_zoo/diffusion_local_transformer/costmap_transformer.onnx")
 
   ament_add_gtest(test_onnx_path_model test/test_onnx_path_model.cpp
     APPEND_LIBRARY_DIRS "${ONNXRUNTIME_LIB_DIR}")

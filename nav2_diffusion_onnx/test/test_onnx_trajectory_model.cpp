@@ -31,6 +31,10 @@
 #ifndef ONNX_ZOO_COSTMAP_MODEL
 #define ONNX_ZOO_COSTMAP_MODEL ""
 #endif
+// The transformer Mode A sibling shipped in model_zoo/ (same ONNX contract).
+#ifndef ONNX_ZOO_COSTMAP_TRANSFORMER_MODEL
+#define ONNX_ZOO_COSTMAP_TRANSFORMER_MODEL ""
+#endif
 
 using nav2_diffusion_onnx::OnnxTrajectoryModel;
 
@@ -65,6 +69,26 @@ double meanLateral(const nav2_diffusion_core::Trajectory & t)
     sum += p.y;
   }
   return t.points.empty() ? 0.0 : sum / static_cast<double>(t.points.size());
+}
+
+// Load a shipped model_zoo Mode A artifact and assert its headline behaviour:
+// every proposed trajectory veers away from a one-sided obstacle.
+void expectVeersAwayFromObstacle(const std::string & path)
+{
+  OnnxTrajectoryModel model(path);
+  EXPECT_EQ(model.name(), "onnx");
+  // Obstacle on the +y (left) side -> every candidate should lean -y (right).
+  const auto left = model.generate(costmapTrajContext(+1.0));
+  ASSERT_FALSE(left.empty());
+  for (const auto & t : left) {
+    EXPECT_LT(meanLateral(t), 0.0);
+  }
+  // Obstacle on the -y (right) side -> every candidate should lean +y (left).
+  const auto right = model.generate(costmapTrajContext(-1.0));
+  ASSERT_FALSE(right.empty());
+  for (const auto & t : right) {
+    EXPECT_GT(meanLateral(t), 0.0);
+  }
 }
 }  // namespace
 
@@ -139,19 +163,16 @@ TEST(OnnxTrajectoryModelTest, CuratedZooModelVeersAwayFromObstacle)
   if (zoo.empty()) {
     GTEST_SKIP() << "model_zoo costmap trajectory model path not provided";
   }
-  OnnxTrajectoryModel model(zoo);
-  EXPECT_EQ(model.name(), "onnx");
+  expectVeersAwayFromObstacle(zoo);
+}
 
-  // Obstacle on the +y (left) side -> every candidate should lean -y (right).
-  const auto left = model.generate(costmapTrajContext(+1.0));
-  ASSERT_FALSE(left.empty());
-  for (const auto & t : left) {
-    EXPECT_LT(meanLateral(t), 0.0);
+// The transformer Mode A sibling (diffusion_local_costmap_transformer_v0): same
+// ONNX contract, same headline behaviour. Guards the second shipped binary.
+TEST(OnnxTrajectoryModelTest, CuratedZooTransformerVeersAwayFromObstacle)
+{
+  const std::string zoo = ONNX_ZOO_COSTMAP_TRANSFORMER_MODEL;
+  if (zoo.empty()) {
+    GTEST_SKIP() << "model_zoo transformer trajectory model path not provided";
   }
-  // Obstacle on the -y (right) side -> every candidate should lean +y (left).
-  const auto right = model.generate(costmapTrajContext(-1.0));
-  ASSERT_FALSE(right.empty());
-  for (const auto & t : right) {
-    EXPECT_GT(meanLateral(t), 0.0);
-  }
+  expectVeersAwayFromObstacle(zoo);
 }

@@ -571,21 +571,31 @@ _COSTMAP_LOSS = {
 
 def train_and_export_costmap(
         path, kind='flow', num_samples=32, epochs=60, lr=0.01,
-        steps=None, sample_weight=0.0):
-    """Train a costmap-conditioned planner (flow/diffusion/consistency) -> 2-input ONNX.
+        steps=None, sample_weight=0.0, device=None):
+    """Train a costmap-conditioned planner (flow/diffusion/consistency/transformer).
+
+    Exports the 2-input ONNX seam (``context [1,4]`` + ``costmap [1,1,S,S]`` ->
+    ``[1,K,H,3]``).
 
     ``steps`` overrides the flow integration steps (more = smoother samples).
     ``sample_weight`` > 0 adds a direct MSE between the *sampled* trajectory and the
     expert target on top of the generative loss, which yields a smooth, ordered
     output whose per-step speeds stay within kinematic limits (so the controller's
     safety gate accepts it). Both default to the previous behaviour.
+
+    ``device`` selects the *training* device (e.g. ``'cuda'``); ``None`` keeps the
+    CPU path. The model is always moved back to CPU for the ONNX export, so the
+    exported artifact is portable regardless of where it was trained.
     """
     torch.manual_seed(0)
+    dev = torch.device(device) if device is not None else torch.device('cpu')
     if kind == 'flow' and steps is not None:
         model = CostmapFlowPlanner(steps=steps)
     else:
         model = _COSTMAP_BUILD[kind]()
+    model.to(dev)
     context, costmap, target = make_costmap_dataset(num_samples)
+    context, costmap, target = context.to(dev), costmap.to(dev), target.to(dev)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     model.train()
@@ -599,7 +609,7 @@ def train_and_export_costmap(
         loss.backward()
         optimizer.step()
 
-    model.eval()
+    model.eval().to('cpu')
     dummy_ctx = torch.zeros(1, 4)
     dummy_map = torch.zeros(1, 1, COSTMAP_SIZE, COSTMAP_SIZE)
     torch.onnx.export(
