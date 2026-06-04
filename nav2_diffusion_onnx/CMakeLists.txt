@@ -136,7 +136,8 @@ if(BUILD_TESTING)
   target_link_libraries(test_onnx_path_model ${PROJECT_NAME})
   target_compile_definitions(test_onnx_path_model
     PRIVATE ONNX_PATH_MODEL="${_path_model}"
-            ONNX_COSTMAP_PATH_MODEL="${_costmap_path_model}")
+            ONNX_COSTMAP_PATH_MODEL="${_costmap_path_model}"
+            ONNX_ZOO_COSTMAP_PATH_MODEL="${CMAKE_CURRENT_SOURCE_DIR}/../model_zoo/diffusion_global/costmap_flow.onnx")
 endif()
 
 ament_package()

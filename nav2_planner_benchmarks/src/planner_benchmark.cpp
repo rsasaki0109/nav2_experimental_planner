@@ -27,8 +27,10 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "ament_index_cpp/get_package_share_directory.hpp"
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav2_core/global_planner.hpp"
 #include "nav2_core/planner_exceptions.hpp"
@@ -48,6 +50,9 @@ struct PlannerEntry
   std::string label;       // human-readable name for the report
   std::string class_name;  // pluginlib class to load
   std::string family;      // paradigm
+  // Extra parameters set on the node (under the instance name) before configure.
+  // Used to point the generative planner at a learned ONNX model, etc.
+  std::vector<rclcpp::Parameter> params;
 };
 
 struct Scenario
@@ -134,17 +139,28 @@ int main(int argc, char ** argv)
   auto * costmap = costmap_ros->getCostmap();
   auto tf = std::make_shared<tf2_ros::Buffer>(node->get_clock());
 
+  // The curated learned Mode B model ships in model_zoo and is installed into this
+  // package's share. Point the generative planner at it via OnnxPathModel.
+  const std::string learned_model =
+    ament_index_cpp::get_package_share_directory("nav2_planner_benchmarks") +
+    "/models/costmap_flow.onnx";
+
   const std::vector<PlannerEntry> planners = {
-    {"RRT*", "nav2_rrt_planner::RRTStarPlanner", "sampling (optimal)"},
-    {"RRT-Connect", "nav2_rrt_planner::RRTConnectPlanner", "sampling (bidirectional)"},
-    {"PRM", "nav2_prm_planner::PRMPlanner", "sampling (roadmap)"},
-    {"D* Lite", "nav2_dstar_lite_planner::DStarLitePlanner", "incremental search"},
-    {"JPS", "nav2_jps_planner::JPSPlanner", "grid A* speed-up"},
-    {"Lazy Theta*", "nav2_lazy_theta_star_planner::LazyThetaStarPlanner", "any-angle"},
-    {"ARA*", "nav2_ara_star_planner::ARAStarPlanner", "anytime"},
-    {"Visibility graph", "nav2_visibility_graph_planner::VisibilityGraphPlanner", "geometric"},
-    {"Diffusion (Mode B)", "nav2_diffusion_global_planner::DiffusionGlobalPlanner",
-      "generative (propose + validate)"},
+    {"RRT*", "nav2_rrt_planner::RRTStarPlanner", "sampling (optimal)", {}},
+    {"RRT-Connect", "nav2_rrt_planner::RRTConnectPlanner", "sampling (bidirectional)", {}},
+    {"PRM", "nav2_prm_planner::PRMPlanner", "sampling (roadmap)", {}},
+    {"D* Lite", "nav2_dstar_lite_planner::DStarLitePlanner", "incremental search", {}},
+    {"JPS", "nav2_jps_planner::JPSPlanner", "grid A* speed-up", {}},
+    {"Lazy Theta*", "nav2_lazy_theta_star_planner::LazyThetaStarPlanner", "any-angle", {}},
+    {"ARA*", "nav2_ara_star_planner::ARAStarPlanner", "anytime", {}},
+    {"Visibility graph", "nav2_visibility_graph_planner::VisibilityGraphPlanner", "geometric", {}},
+    {"Diffusion (Mode B, analytic)", "nav2_diffusion_global_planner::DiffusionGlobalPlanner",
+      "generative fan (propose + validate)", {}},
+    {"Diffusion (Mode B, learned)", "nav2_diffusion_global_planner::DiffusionGlobalPlanner",
+      "generative flow + costmap (propose + validate)",
+      {rclcpp::Parameter("model_plugin", std::string("nav2_diffusion_onnx::OnnxPathModel")),
+        rclcpp::Parameter("model_path", learned_model),
+        rclcpp::Parameter("provide_costmap", true)}},
   };
 
   std::vector<Scenario> scenarios = {
@@ -154,6 +170,10 @@ int main(int argc, char ** argv)
     {"slalom", "Two staggered walls (gap low then high) forcing an S-shaped detour",
       1.0, 3.0, 5.0, 3.0,
       {{{2.2, 1.0, 0.8, 2}}, {{3.8, 5.0, 0.8, 2}}}},
+    {"side obstacle", "One-sided block across the straight line; a small detour to "
+      "the open side clears it (matches the learned model's competence)",
+      1.0, 3.0, 5.0, 3.0,
+      {{{3.0, 1.4, 1.4, 4}}}},
   };
 
   pluginlib::ClassLoader<nav2_core::GlobalPlanner> loader(
@@ -171,20 +191,26 @@ int main(int argc, char ** argv)
     "(absolute numbers vary with load); compare relative magnitudes and the "
     "path-length / shape columns.\n\n";
   std::cout << "Planners (all `nav2_core::GlobalPlanner` plugins absent from "
-    "upstream Nav2 — eight classical plus one generative):\n\n";
+    "upstream Nav2 — eight classical plus two generative, analytic and learned):\n\n";
   for (const auto & p : planners) {
     std::cout << "- **" << p.label << "** — " << p.family << "\n";
   }
   std::cout << "\n> D\\* Lite caches its goal-rooted search across calls, so its "
     "median reflects warm incremental replans (the first cold plan is slower). "
     "The others replan from scratch each call.\n\n";
-  std::cout << "> **Diffusion (Mode B)** is the generative planner running its "
-    "default analytic `FanPathModel` (no ONNX, fully deterministic): it *proposes* "
-    "a fan of bowed candidates and the deterministic validity layer *disposes* of "
-    "colliding ones, keeping the shortest survivor. Unlike the search planners it "
-    "is not complete — if no proposed candidate threads the gap it reports no path. "
-    "A trained model would propose richer, data-driven shapes; the same safety "
-    "layer would still gate them.\n\n";
+  std::cout << "> **Diffusion (Mode B)** is the generative planner — a model "
+    "*proposes* candidate paths and the deterministic validity layer *disposes* of "
+    "colliding ones, keeping the shortest survivor. Two variants run here. "
+    "**analytic** uses the built-in `FanPathModel` (a symmetric bowed fan, no ONNX); "
+    "**learned** loads the curated costmap-conditioned flow model from `model_zoo` "
+    "via `OnnxPathModel` (real ONNX inference). Both are generative, so unlike the "
+    "search planners they are not complete: if no proposal threads the gap they "
+    "report no path. The learned model reads the costmap and biases every proposal "
+    "to the open side (see its model card), but its synthetic training distribution "
+    "caps the detour size — so it clears *clear* and *side obstacle* yet cannot make "
+    "the 2 m swing of *off-centre gap* or the S of *slalom* that the wider analytic "
+    "fan can. The ceiling is the training data, not the architecture; richer data "
+    "lifts it and the same safety layer still gates the output.\n\n";
 
   for (const auto & sc : scenarios) {
     std::cout << "## Scenario: " << sc.name << "\n\n";
@@ -198,6 +224,17 @@ int main(int argc, char ** argv)
       std::string name = "bench_" + pe.label;
       std::replace(name.begin(), name.end(), ' ', '_');
       std::replace(name.begin(), name.end(), '*', 's');
+
+      // Apply any per-planner parameters under the instance name before configure
+      // (idempotent across scenarios, which reuse the same instance name).
+      for (const auto & p : pe.params) {
+        const std::string key = name + "." + p.get_name();
+        if (node->has_parameter(key)) {
+          node->set_parameter(rclcpp::Parameter(key, p.get_parameter_value()));
+        } else {
+          node->declare_parameter(key, p.get_parameter_value());
+        }
+      }
 
       std::shared_ptr<nav2_core::GlobalPlanner> planner;
       try {

@@ -29,7 +29,7 @@
 | 時間予算が厳しく「まず妥当解→改善」 | **[ARA\*](../nav2_ara_star_planner)** | anytime。ε を下げて bounded-suboptimal を漸進改善 |
 | 非格子的な通路・広い自由空間・将来の高次元化 | **[RRT\* / RRT-Connect](../nav2_rrt_planner)** | sampling。RRT-Connect は狭路を高速に貫通（feasible）、RRT\* は漸近最適 |
 | 同一地図で多数の異なるクエリ | **[PRM](../nav2_prm_planner)** | ロードマップを再利用できる（本実装は plan ごと再構築だが将来 multi-query 向き） |
-| 学習した経路分布で multimodal 提案＋安全層検証 | **[生成型 Mode B](../nav2_diffusion_global_planner)** | モデルが K 候補を提案、costmap が検証、最短安全パス選択 |
+| 学習した経路分布で multimodal 提案＋安全層検証 | **[生成型 Mode B](../nav2_diffusion_global_planner)** | モデルが K 候補を提案、costmap が検証、最短安全パス選択。解析的 fan か、[model_zoo](../model_zoo/diffusion_global) の costmap 条件付き **学習済み** flow モデル（`OnnxPathModel`）を選べる |
 
 ### 決定フロー
 

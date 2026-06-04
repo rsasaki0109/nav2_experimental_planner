@@ -228,24 +228,27 @@ class CostmapPathFlowPlanner(nn.Module):
         return torch.cat(outs, dim=1)
 
 
-def _aligned_patch(side):
+def _aligned_patch(side, inner=0.0, x_lo=1.5, x_hi=4.0):
     """
     Build a patch (row->fwd x, col->lateral y) with an obstacle on one side.
 
     side > 0 places the obstacle on the +y (left) half ahead, so the gap (and
-    the expert) is on the -y (right) side, and vice versa.
+    the expert) is on the -y (right) side, and vice versa. ``inner`` is the
+    lateral distance (m) from the centre line at which the obstacle band starts,
+    and ``x_lo``/``x_hi`` are the forward extent (m) of the band. Varying these
+    teaches the model to respond to partial / weaker obstacle signals (the real
+    costmap rarely fills a whole half), which is what the C++ backend resamples
+    from the live costmap.
     """
     s = PATH_COSTMAP_SIZE
     patch = torch.zeros(1, s, s)
-    # Obstacle band roughly mid-range ahead (x in ~[1.5, 4.0] m).
-    r0 = int(s * 1.5 / PATCH_FWD)
-    r1 = int(s * 4.0 / PATCH_FWD)
-    # Lateral half occupied by the obstacle (one side of centre col).
-    if side > 0:
-        c0, c1 = s // 2, s          # +y (left) half
-    else:
-        c0, c1 = 0, s // 2          # -y (right) half
-    patch[:, r0:r1, c0:c1] = 1.0
+    r0 = max(0, int(s * x_lo / PATCH_FWD))
+    r1 = min(s, int(s * x_hi / PATCH_FWD))
+    for c in range(s):
+        ay = -PATCH_HALF + 2.0 * PATCH_HALF * (c + 0.5) / s
+        # Signed lateral coordinate on the obstacle side; occupy [inner, edge].
+        if inner < side * ay < PATCH_HALF:
+            patch[:, r0:r1, c] = 1.0
     return patch
 
 
@@ -255,22 +258,43 @@ def make_costmap_path_dataset(num_samples):
 
     Each sample has a one-sided obstacle ahead; the expert path bows to the open
     side, so the model must read the costmap to choose the avoidance direction.
+    Obstacle width (``inner``) and forward extent vary, and every configuration is
+    emitted as a mirrored +y/-y pair, so the learned response is symmetric and
+    robust to partial obstacle signals rather than memorising one full half.
     """
     contexts = []
     patches = []
     targets = []
-    for i in range(num_samples):
+    # Deterministic grids of obstacle width (inner edge) and forward extent so the
+    # model sees strong and weak / partial signals, not one canonical full half.
+    inners = [0.0, 0.3, 0.6, 1.0]
+    spans = [(1.5, 4.0), (1.0, 3.0), (2.0, 4.5), (1.5, 3.0)]
+    i = 0
+    while len(contexts) < num_samples:
         d = 3.0 + 2.0 * ((i * 5) % 7) / 6.0          # goal distance 3..5 m
-        side = 1.0 if (i % 2 == 0) else -1.0          # obstacle side
-        gap_sign = -side                              # veer to the open side
-        rows = []
-        for h in range(PATH_H):
-            t = h / (PATH_H - 1)
-            bump = t * (1.0 - t) * 4.0                # 0 at both ends
-            rows.append([t * d, gap_sign * 0.9 * bump])
-        contexts.append([d, 0.0])
-        patches.append(_aligned_patch(side))
-        targets.append(rows)
+        inner = inners[i % len(inners)]
+        x_lo, x_hi = spans[(i // 2) % len(spans)]
+        # Emit a mirrored +y / -y pair for every configuration -> symmetric data.
+        for side in (1.0, -1.0):
+            if len(contexts) >= num_samples:
+                break
+            gap_sign = -side                          # veer to the open side
+            rows = []
+            for h in range(PATH_H):
+                t = h / (PATH_H - 1)
+                bump = t * (1.0 - t) * 4.0            # 0 at both ends
+                rows.append([t * d, gap_sign * 0.9 * bump])
+            contexts.append([d, 0.0])
+            patches.append(_aligned_patch(side, inner=inner, x_lo=x_lo, x_hi=x_hi))
+            targets.append(rows)
+        # Anchor the unconditioned (clear) behaviour to the straight line so the
+        # model has no built-in left/right bias; the K latents still fan the
+        # proposals out around it.
+        if len(contexts) < num_samples:
+            contexts.append([d, 0.0])
+            patches.append(torch.zeros(1, PATH_COSTMAP_SIZE, PATH_COSTMAP_SIZE))
+            targets.append([[(h / (PATH_H - 1)) * d, 0.0] for h in range(PATH_H)])
+        i += 1
     return (
         torch.tensor(contexts, dtype=torch.float32),
         torch.stack(patches),

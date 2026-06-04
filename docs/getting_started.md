@@ -72,6 +72,18 @@ planner_server:
 
 例 yaml はすべて [../nav2_diffusion_bringup/params/](../nav2_diffusion_bringup/params) にあり、各 plugin の全パラメータは対応パッケージの README を参照。
 
+生成型 Mode B は既定では解析的 `FanPathModel` で動くが、**学習済みモデル**に差し替えられる。[model_zoo](../model_zoo/diffusion_global) の costmap 条件付き flow モデル（`costmap_flow.onnx`）を使うには:
+
+```yaml
+    GridBased:
+      plugin: "nav2_diffusion_global_planner::DiffusionGlobalPlanner"
+      model_plugin: "nav2_diffusion_onnx::OnnxPathModel"   # 学習済みモデルをロード
+      model_path: "/path/to/model_zoo/diffusion_global/costmap_flow.onnx"
+      provide_costmap: true
+```
+
+このモデルは costmap を読んで提案を空き側へ寄せる（挙動と限界は [model_card](../model_zoo/diffusion_global/model_card.md)、横断比較は [planner_comparison.md](planner_comparison.md) の *Mode B, learned* 行）。`OnnxPathModel` は `nav2_diffusion_onnx` + onnxruntime が必要。
+
 ### reactive Controller を差し替える（controller_server）
 
 ```yaml

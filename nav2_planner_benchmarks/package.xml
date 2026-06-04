@@ -16,6 +16,7 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <depend>ament_index_cpp</depend>
   <depend>rclcpp</depend>
   <depend>rclcpp_lifecycle</depend>
   <depend>geometry_msgs</depend>
@@ -36,6 +37,7 @@
   <exec_depend>nav2_ara_star_planner</exec_depend>
   <exec_depend>nav2_visibility_graph_planner</exec_depend>
   <exec_depend>nav2_diffusion_global_planner</exec_depend>
+  <exec_depend>nav2_diffusion_onnx</exec_depend>
   <exec_depend>nav2_vfh_controller</exec_depend>
   <exec_depend>nav2_nd_controller</exec_depend>
 

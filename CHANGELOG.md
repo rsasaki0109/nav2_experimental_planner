@@ -6,6 +6,38 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
 ## [Unreleased]
 
+### Added
+
+- **First learned model in the loop (Mode B).** The repo's generative claim is no
+  longer carried only by analytic placeholders: a curated costmap-conditioned
+  flow-matching path model now ships in [`model_zoo/diffusion_global/`](model_zoo/diffusion_global)
+  (`costmap_flow.onnx`, ≈349 KB, with `manifest.yaml`, `model_card.md`, and an
+  `export.py` that reproduces it) and runs end-to-end through the real C++ ONNX
+  inference path (`nav2_diffusion_onnx::OnnxPathModel`), not just a unit-test
+  fixture. It reads the costmap and biases **every** proposal toward the
+  obstacle-free side (no built-in left/right bias; clear → centred). This is the
+  repo's first populated model-zoo entry.
+- **Learned Mode B in the planner comparison.** `planner_benchmark` now also runs
+  the learned model (*Diffusion (Mode B, learned)*) alongside the analytic fan and
+  the eight classical planners, and a new **side-obstacle** scenario plays to its
+  costmap-conditioned competence. It clears *clear* and *side obstacle* but reports
+  *no path* on *off-centre gap* (a 2 m detour) and *slalom* (an S-shape): the
+  ceiling is the synthetic training distribution, not the architecture — richer
+  data lifts it and the same deterministic validity layer still gates the output.
+  See [docs/planner_comparison.md](docs/planner_comparison.md).
+- **End-to-end C++ test for the curated artifact.**
+  `nav2_diffusion_onnx`'s `test_onnx_path_model` loads the shipped `model_zoo`
+  binary and asserts the costmap side-selection behaviour (obstacle-left → all
+  candidates veer right, and vice versa), guarding the artifact against drift
+  (runs where onnxruntime is available).
+
+### Changed
+
+- **`nav2_diffusion_training.path_planners.make_costmap_path_dataset`** now varies
+  obstacle width / forward extent, emits mirrored +y/−y pairs, and includes clear
+  (no-obstacle) samples, so the learned Mode B model responds symmetrically and
+  without a built-in lateral bias.
+
 ## [0.5.0] - 2026-06-04
 
 Theme: **making the experimental catalog usable.** v0.4.0 added the breadth of

@@ -74,6 +74,8 @@ planner_server:
 
 **costmap 条件付きモデル**（`train_and_export_costmap_path` で学習）を使う場合、planner が `provide_costmap:=true`（既定）で大域 costmap を渡し、backend が goal-aligned パッチにリサンプルして供給する。モデルは障害物の無い側へ候補を寄せる＝costmap を読んだ賢い提案になる（local controller の costmap 条件付けと対称）。`model_plugin`/`model_path` の指定方法は context-only モデルと同じ。
 
+**学習済みモデル（すぐ使える）**: [../model_zoo/diffusion_global/costmap_flow.onnx](../model_zoo/diffusion_global) が curated 済み。`model_path` にこれを指すだけで、costmap を読んで提案する学習済み Mode B が動く。挙動・限界は [model_card](../model_zoo/diffusion_global/model_card.md)、同一土俵の比較は [../docs/planner_comparison.md](../docs/planner_comparison.md) の *Mode B, learned* 行。
+
 ## 関連
 
 - Mode A（Controller）: [../nav2_diffusion_controller/README.md](../nav2_diffusion_controller/README.md)

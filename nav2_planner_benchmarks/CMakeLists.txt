@@ -8,6 +8,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 
 set(dependencies
+  ament_index_cpp
   rclcpp
   rclcpp_lifecycle
   geometry_msgs
@@ -35,6 +36,13 @@ ament_target_dependencies(controller_benchmark ${dependencies})
 install(
   TARGETS planner_benchmark controller_benchmark
   RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
+# The curated learned Mode B model (model_zoo) is installed so planner_benchmark
+# can load it at runtime via OnnxPathModel.
+install(
+  FILES ${CMAKE_CURRENT_SOURCE_DIR}/../model_zoo/diffusion_global/costmap_flow.onnx
+  DESTINATION share/${PROJECT_NAME}/models
 )
 
 if(BUILD_TESTING)

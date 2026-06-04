@@ -26,6 +26,11 @@
 #ifndef ONNX_COSTMAP_PATH_MODEL
 #define ONNX_COSTMAP_PATH_MODEL ""
 #endif
+// The curated, committed Mode B artifact shipped in model_zoo/ (not a build-time
+// fixture). Exercising it guards the shipped binary against corruption / drift.
+#ifndef ONNX_ZOO_COSTMAP_PATH_MODEL
+#define ONNX_ZOO_COSTMAP_PATH_MODEL ""
+#endif
 
 using nav2_diffusion_onnx::OnnxPathModel;
 
@@ -136,4 +141,31 @@ TEST(OnnxPathModelTest, CostmapConditionedVeersAwayFromObstacle)
   // Endpoints stay anchored regardless of the costmap.
   EXPECT_DOUBLE_EQ(left.front().points.front().x, 0.0);
   EXPECT_DOUBLE_EQ(left.front().points.back().x, 4.0);
+}
+
+// The shipped model_zoo artifact (diffusion_global_costmap_flow_v0): load the
+// actual committed .onnx and assert its headline behaviour — every proposed
+// candidate veers away from a one-sided obstacle. This is the repo's first
+// learned model in the loop, so the curated binary itself is a regression guard.
+TEST(OnnxPathModelTest, CuratedZooModelVeersAwayFromObstacle)
+{
+  const std::string zoo = ONNX_ZOO_COSTMAP_PATH_MODEL;
+  if (zoo.empty()) {
+    GTEST_SKIP() << "model_zoo costmap path model path not provided";
+  }
+  OnnxPathModel model(zoo);
+  EXPECT_EQ(model.name(), "onnx_path");
+
+  // Obstacle on the +y (left) side ahead -> ALL candidates should lean -y.
+  const auto left = model.generate(costmapContext(+1.0));
+  ASSERT_FALSE(left.empty());
+  for (const auto & c : left) {
+    EXPECT_LT(c.points[c.points.size() / 2].y, 0.0);
+  }
+  // Obstacle on the -y (right) side ahead -> ALL candidates should lean +y.
+  const auto right = model.generate(costmapContext(-1.0));
+  ASSERT_FALSE(right.empty());
+  for (const auto & c : right) {
+    EXPECT_GT(c.points[c.points.size() / 2].y, 0.0);
+  }
 }
