@@ -211,10 +211,13 @@ nav2_diffusion_core::PathContext gapContext(double slot_side)
 }
 }  // namespace
 
-// The transformer Mode B sibling (diffusion_global_costmap_transformer_v0): it
-// crosses the off-centre-gap ceiling the flow model could not — every candidate
-// detours toward the slot at the wall. Guards the shipped binary's headline claim.
-TEST(OnnxPathModelTest, CuratedZooTransformerRoutesThroughGap)
+// The transformer Mode B sibling (diffusion_global_costmap_transformer_v0): its raw
+// proposals AIM at an off-centre slot where the flow model's cannot. This is a
+// proposal-direction check, not a validated-routing claim: it guards that the shipped
+// binary still bends every candidate toward the slot (a representational result; the
+// full footprint-validated planner does NOT thread the narrow slot — the hybrid does,
+// see docs/generative_limits.md).
+TEST(OnnxPathModelTest, CuratedZooTransformerAimsAtOffCentreSlot)
 {
   const std::string zoo = ONNX_ZOO_COSTMAP_PATH_TRANSFORMER_MODEL;
   if (zoo.empty()) {
@@ -223,13 +226,13 @@ TEST(OnnxPathModelTest, CuratedZooTransformerRoutesThroughGap)
   OnnxPathModel model(zoo);
   EXPECT_EQ(model.name(), "onnx_path");
 
-  // Slot on +y -> candidates must detour toward +y near the wall (mid-path).
+  // Slot on +y -> candidates must lean toward +y near the wall (mid-path).
   const auto pos = model.generate(gapContext(+1.0));
   ASSERT_FALSE(pos.empty());
   for (const auto & c : pos) {
     EXPECT_GT(c.points[c.points.size() / 2].y, 0.5);
   }
-  // Slot on -y -> candidates must detour toward -y.
+  // Slot on -y -> candidates must lean toward -y.
   const auto neg = model.generate(gapContext(-1.0));
   ASSERT_FALSE(neg.empty());
   for (const auto & c : neg) {

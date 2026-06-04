@@ -54,18 +54,24 @@ training_data:
 # Behavioural check, not the full Nav2 benchmark suite (research placeholder).
 benchmark_results:
   passed: true
-  suite: behavioural (nav2_diffusion_onnx end-to-end path test)
-  costmap_side_selection: true     # one-sided obstacle -> candidates veer to the free side
-  off_centre_gap_routing: true     # wall+slot at +/-2 m -> candidates detour toward the slot
+  suite: behavioural (nav2_diffusion_onnx end-to-end path direction test)
+  costmap_side_selection: true     # one-sided obstacle -> candidates veer to the free side (raw output)
+  off_centre_slot_aiming: true     # wall+slot at +/-2 m -> candidates' lateral at the wall ~= slot offset
+  passes_footprint_validated_gap: false  # full planner_benchmark off-centre gap: no valid path (hybrid solves it)
   note: >
-    Crosses the off-centre-gap ceiling that the flow Mode B model could not, even when
-    trained on the same gap data (flow stays near-straight / wrong side; this routes to
-    the slot on both sides). See docs/generative_limits.md.
+    Representational advance, NOT a benchmark win. Aims its proposals at the off-centre
+    slot where the flow Mode B model cannot (flow loss 0.12 / no aim; this 0.002 / aims
+    on both sides). But in the footprint-validated planner_benchmark the proposed path
+    does not thread the narrow 1 m slot, so DiffusionGlobalPlanner reports no path on
+    off-centre gap (same as flow), and this 'both'-trained model is currently weaker
+    than flow on side obstacle. The hybrid planner remains the completeness guarantee.
+    See docs/generative_limits.md.
   collision_count: 0               # deterministic validity layer gates all output
 
 limitations:
   - "Synthetic training data only — NOT validated on any real robot or rosbag."
-  - "Slot routing demonstrated for offsets up to ~2 m within the 24x24 / 6x6 m patch window."
+  - "Proposal-level result only: aims at the slot in raw output but does NOT pass the footprint-validated planner_benchmark off-centre gap; underperforms the flow model on side obstacle."
+  - "Slot aiming demonstrated for offsets up to ~2 m within the 24x24 / 6x6 m patch window."
   - "Research / demonstration model. Do not deploy on hardware; the validity layer is the authority."
 
 license:

@@ -263,8 +263,10 @@ class CostmapPathTransformerPlanner(nn.Module):
     prepended with a context token; K learned query tokens cross-attend to that
     memory and each decodes a full start->goal path in one deterministic forward
     pass. Attention over explicit costmap tokens (vs the flow model's 16-d CNN
-    embedding) is the hypothesis for routing through an off-centre gap, where the
-    flow model hit its ceiling (docs/generative_limits.md).
+    embedding) lets it *aim* its proposals at an off-centre slot, which the flow
+    model cannot (docs/generative_limits.md). NOTE: this is a proposal-direction
+    advance, not a benchmark win — the footprint-validated planner does not thread
+    the narrow slot from these proposals; the hybrid planner remains the solution.
     """
 
     def __init__(self):

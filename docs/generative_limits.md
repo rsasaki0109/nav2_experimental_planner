@@ -11,7 +11,8 @@
 | costmap を読んで**回避側を選ぶ**（片側障害物 → 反対へ寄せる） | ✅ できる（両モード、全候補が空き側へ） | v0.6.0 出荷・end-to-end C++ テストで検証 |
 | 学習分布内の patch での**側選択の頑健性** | ✅ できる | 同上 |
 | Mode A: **open での閉ループ goal 到達** | ✅ できる（pure-pursuit 弧 expert で carrot 追従） | v0.6.0 出荷 |
-| Mode B: **off-centre gap（大迂回・スロット通過）** | ❌ 学習単体では天井 → ✅ **ハイブリッドで解決** | 下記参照 |
+| Mode B: **off-centre gap の方向検出（スロットを狙う）** | ⚠️ flow（CNN）は不可 → ✅ **transformer（attention）は raw 提案でスロット方向を向く** | 下記「追記」参照（A/B + C++ 方向テスト） |
+| Mode B: **off-centre gap を実際に通る（footprint 検証 benchmark）** | ❌ 学習単体では天井（transformer でも狭スロット未貫通）→ ✅ **ハイブリッドで解決** | 下記参照 |
 | Mode A: **障害物のスレッディング（回り込み通過）** | ❌ 学習単体では天井 → ✅ **ハイブリッドで解決** | 下記参照 |
 
 要点: **side-selection と open goal 到達は小型モデルでも実機構で動く**。一方 **gap-routing と obstacle-threading は探索/分布シフトの問題**で、小型・合成学習モデル単体の天井。これは偶然ではなく、**classical search / reactive 法が本来勝つ領域**であり、本リポジトリが 8 種の classical planner と 2 種の reactive controller を併載する理由そのもの。そして **ハイブリッド**（generative 提案 + classical fallback）はこの天井を実際に超える: Mode B の off-centre gap / slalom は learned+JPS の hybrid が解く（後述）。
@@ -34,7 +35,22 @@
 
 **所見**: 迂回の大きさは学習できるが、薄壁スロットの**方向検出**が training patch → benchmark の再サンプル patch へ**転移しない**（小型 CNN encoder の脆さ）。off-centre gap は本質的に **routing/search 問題**で、わずかな patch の差で答えが反転する。完全性保証のある探索系（NavFn/Smac、本リポジトリの D\* Lite/JPS/visibility graph 等）の領域。
 
-> 出荷している learned Mode B は v0.6.0 のまま（gap 実験は出荷せず revert）。off-centre gap は引き続き *no path*（安全側に fail-closed）として正直に表に出している。
+> 出荷している learned Mode B（flow）は v0.6.0 のまま（flow の gap 実験は出荷せず revert）。off-centre gap は flow では引き続き *no path*（安全側に fail-closed）として正直に表に出している。
+
+#### 追記: transformer は「方向検出」だけは越える（が benchmark は未突破）
+
+上の天井のうち **(3) 方向が転移しない** 部分は、**アーキテクチャで部分的に越えられる**ことが分かった（2026-06、`diffusion_global_costmap_transformer_v0`）。flow の 16 次元 CNN embedding を、**costmap パッチをトークン化して cross-attention する transformer**（DETR 風 set-prediction）に替えると、**同じ gap データで raw 提案がスロット方向を正しく向く**:
+
+- 直接 A/B（同一 gap データ・同一 patch）: flow は loss 0.12 で **routing せず**（直進/逆側）、transformer は loss 0.002 で **両側ともスロット方向**（wall での横ズレ ≈ ±2 m）。C++ 方向テスト `OnnxPathModelTest.CuratedZooTransformerAimsAtOffCentreSlot` で出荷バイナリを検証。
+- **つまり「方向検出が小型 encoder の脆さで転移しない」は容量/アーキの問題**であり、本質的限界ではない。
+
+**ただし、これは benchmark の突破ではない（正直なスコープ）**:
+
+- footprint 検証付きの `planner_comparison.md` *off-centre gap*（幅 1 m の狭スロット）では、transformer の提案も**有効 path を通せず** `DiffusionGlobalPlanner` は *no path*（flow と同じ）。提案はスロットを「狙う」が、狭スロットを footprint 余裕込みで**貫通**するには至らない。
+- さらに gap と side を混ぜて学習した `'both'` モデルは、現状 **side obstacle で flow に劣る**（benchmark で *no path*）。
+- よって **gap の完全な解は引き続き hybrid**（generative 提案 → classical 探索が完全性を担保）。transformer が示したのは「**提案ステージの方向限界は表現の問題で、容量・footprint 対応学習・広いスロットで将来 benchmark 突破に届きうる**」という布石であって、現時点の benchmark 勝利ではない。
+
+> 出荷: `diffusion_global_costmap_transformer_v0` は**研究デモ**として model_zoo に収録（raw 方向の A/B と C++ 方向テスト付き）。benchmark には載せていない（pure-generative では未突破で、載せると flow より全面的に劣って誤解を招くため）。
 
 ### Mode A: 障害物スレッディング（回り込み通過）
 
