@@ -2,9 +2,13 @@
 
 > 関連: [architecture.md](architecture.md)、[risks.md](risks.md)
 
-## 実装状況（v0.3.0 時点）
+## 実装状況（v0.5.0 時点）
 
-以下は計画（後続セクション）に対する現状サマリ。一部は計画を先取りして実装済み。
+以下は計画（後続セクション）に対する現状サマリ。一部は計画を先取りして実装済み。なお
+v0.4.0 以降、リポジトリの charter は「生成型」から「**Nav2 公式に無い実験的 planner 全般
+（生成型 + classical）**」へ広がり、本ロードマップ（生成系中心）の外側に classical な
+GlobalPlanner 8 種・reactive Controller 2 種・横断比較ベンチ・選択ガイドが加わっている
+（[CHANGELOG.md](../CHANGELOG.md) / [choosing_a_planner.md](choosing_a_planner.md)）。
 
 | 項目 | 計画 | 状況 |
 |---|---|---|

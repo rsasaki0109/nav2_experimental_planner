@@ -6,6 +6,18 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-04
+
+Theme: **making the experimental catalog usable.** v0.4.0 added the breadth of
+classical planners; this release makes the catalog navigable and honest about
+trade-offs. It adds a second reactive controller (ND) so the local side spans two
+paradigms, two closed-loop comparison benchmarks (global planners and reactive
+controllers) that measure rather than assert, a selection guide and onboarding so
+users can find the right plugin, and puts the generative Mode B planner on the
+same comparison footing as the classical ones. The closed-loop benchmark also
+caught and fixed a real backward-lookahead bug that unit tests missed — evidence
+that the measurement layer earns its place.
+
 ### Added
 
 - **Generative Mode B in the planner comparison** — the planner benchmark now also
@@ -370,6 +382,7 @@ deterministic safety layer and a benchmark suite. Matches the v0.1 theme
   simulated LiDAR; DDS discovery flakiness). The underlying logic is unit-tested.
 - This is not a safety-certified product; see [docs/safety.md](docs/safety.md).
 
+[0.5.0]: https://github.com/rsasaki0109/nav2_experimental_planner/releases/tag/v0.5.0
 [0.4.0]: https://github.com/rsasaki0109/nav2_experimental_planner/releases/tag/v0.4.0
 [0.3.0]: https://github.com/rsasaki0109/nav2_experimental_planner/releases/tag/v0.3.0
 [0.2.0]: https://github.com/rsasaki0109/nav2_experimental_planner/releases/tag/v0.2.0
