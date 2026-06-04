@@ -8,6 +8,11 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
 ### Added
 
+- **Planner / controller selection guide** — `docs/choosing_a_planner.md`: when to
+  use each of the eight classical global planners, the two reactive controllers,
+  and the generative options (with decision tables and Mermaid flowcharts), plus
+  honest guidance on when upstream Nav2 (NavFn/Smac, MPPI/DWB/RPP) is the better
+  choice. Links the offline comparison reports.
 - **Reactive controller comparison benchmark** — `controller_benchmark`
   (`nav2_planner_benchmarks`) rolls out the VFH+ and ND controllers closed-loop
   against a live `Costmap2DROS` with a unicycle model on shared scenarios (open,

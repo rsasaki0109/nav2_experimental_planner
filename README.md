@@ -150,6 +150,7 @@ flowchart LR
 | [docs/model_comparison.md](docs/model_comparison.md) | 6生成系のオフライン比較 leaderboard（`tools/benchmark_models.py` 自動生成） |
 | [docs/planner_comparison.md](docs/planner_comparison.md) | classical GlobalPlanner 8種のオフライン比較（経路長/pose/時間。`nav2_planner_benchmarks` 自動生成） |
 | [docs/controller_comparison.md](docs/controller_comparison.md) | reactive Controller（VFH+ / ND）の閉ループ比較（到達/クリアランス/操舵/中央寄せ。`nav2_planner_benchmarks` 自動生成） |
+| [docs/choosing_a_planner.md](docs/choosing_a_planner.md) | planner / controller 選択ガイド（状況別の推奨・決定フロー） |
 | [docs/visualization.md](docs/visualization.md) | RViz / Foxglove 可視化（候補軌道・安全状態・cmd_vel、Foxglove レイアウト同梱） |
 
 ---
