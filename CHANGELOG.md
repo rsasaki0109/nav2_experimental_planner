@@ -33,6 +33,13 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
   close right-side obstacle**, no plan, at goal), registered via pluginlib, added
   to CI and a bringup controller_server example.
 
+### Changed
+
+- **getting_started.md** now onboards the classical planners/controllers too:
+  how to swap any of the eight global planners and the two reactive controllers
+  via `planner_server` / `controller_server`, a plugin-class table pointing at the
+  bringup example yamls, and links to the selection guide and comparison reports.
+
 ### Fixed
 
 - **Lookahead carrot could point backwards** in `VFHController` and `NDController`:

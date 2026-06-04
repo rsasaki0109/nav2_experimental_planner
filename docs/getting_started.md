@@ -2,7 +2,9 @@
 
 > 対象: 既存の Nav2 ユーザー。関連: [architecture.md](architecture.md) §3.2 Mode A、[simulation.md](simulation.md)、[../nav2_diffusion_bringup/README.md](../nav2_diffusion_bringup/README.md)
 
-`nav2_experimental_planner` は、Nav2 の Controller を差し替えるだけで生成型ローカルプランナを試せます。「Learned models propose. Classical safety disposes. Nav2 executes.」
+`nav2_experimental_planner` は、Nav2 の plugin を差し替えるだけで、**Nav2 公式に無い planner / controller** を試せます。生成型ローカルプランナ（「Learned models propose. Classical safety disposes. Nav2 executes.」）に加え、**classical な GlobalPlanner 8 種**（RRT\* / RRT-Connect / PRM / D\* Lite / JPS / Lazy Theta\* / ARA\* / visibility graph）と **reactive Controller 2 種**（VFH+ / ND）を収録しています。
+
+どれを選ぶかは [choosing_a_planner.md](choosing_a_planner.md)（状況別の推奨・決定フロー）、実測比較は [planner_comparison.md](planner_comparison.md) / [controller_comparison.md](controller_comparison.md) を参照。
 
 ## 必要環境
 
@@ -43,6 +45,53 @@ controller_server:
 
 完全な例: [../nav2_diffusion_bringup/params/nav2_diffusion_tb3.yaml](../nav2_diffusion_bringup/params/nav2_diffusion_tb3.yaml)（Nav2 デフォルト params の FollowPath だけを差し替えたもの）。
 
+## classical な planner / controller を試す
+
+生成モデル無しで、Nav2 公式に無い **classical** な GlobalPlanner / Controller も同じく plugin 差し替えだけで使えます（学習依存・GPU 不要）。
+
+### GlobalPlanner を差し替える（planner_server）
+
+```yaml
+planner_server:
+  ros__parameters:
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_rrt_planner::RRTStarPlanner"   # 下表の class に置き換え
+```
+
+| 使いたいもの | plugin class | 例 yaml |
+|---|---|---|
+| RRT\* / RRT-Connect | `nav2_rrt_planner::RRTStarPlanner` / `::RRTConnectPlanner` | `rrt_planner_example.yaml` |
+| PRM | `nav2_prm_planner::PRMPlanner` | `prm_planner_example.yaml` |
+| D\* Lite | `nav2_dstar_lite_planner::DStarLitePlanner` | `dstar_lite_planner_example.yaml` |
+| JPS | `nav2_jps_planner::JPSPlanner` | `jps_planner_example.yaml` |
+| Lazy Theta\* | `nav2_lazy_theta_star_planner::LazyThetaStarPlanner` | `lazy_theta_star_planner_example.yaml` |
+| ARA\* | `nav2_ara_star_planner::ARAStarPlanner` | `ara_star_planner_example.yaml` |
+| visibility graph | `nav2_visibility_graph_planner::VisibilityGraphPlanner` | `visibility_graph_planner_example.yaml` |
+| 生成型 Mode B | `nav2_diffusion_global_planner::DiffusionGlobalPlanner` | `diffusion_global_planner_example.yaml` |
+
+例 yaml はすべて [../nav2_diffusion_bringup/params/](../nav2_diffusion_bringup/params) にあり、各 plugin の全パラメータは対応パッケージの README を参照。
+
+### reactive Controller を差し替える（controller_server）
+
+```yaml
+controller_server:
+  ros__parameters:
+    controller_plugins: ["FollowPath"]
+    FollowPath:
+      plugin: "nav2_vfh_controller::VFHController"   # または nav2_nd_controller::NDController
+```
+
+例: `vfh_controller_example.yaml` / `nd_controller_example.yaml`。
+
+### 登録確認
+
+```bash
+ros2 plugin list | grep -E "Planner|Controller"
+```
+
+8 つの GlobalPlanner と VFH+ / ND Controller が `nav2_core::GlobalPlanner` / `nav2_core::Controller` として並びます。
+
 ## closed-loop demo
 
 ```bash
@@ -64,6 +113,8 @@ demo launch は `candidate_markers` ノードも起動します。RViz に **Mar
 
 ## 次のステップ
 
+- どれを使うか迷ったら: [choosing_a_planner.md](choosing_a_planner.md)（状況別の推奨・決定フロー）
+- classical 群の比較: [planner_comparison.md](planner_comparison.md)（GlobalPlanner 8 種）/ [controller_comparison.md](controller_comparison.md)（VFH+ vs ND）
 - 挙動の理解: 候補軌道（`TrajectoryCandidates`）と `SafetyState` を RViz / `ros2 topic echo` で観察
 - 自分の robot へ: [../nav2_diffusion_controller/README.md](../nav2_diffusion_controller/README.md) のパラメータ
 - 自社データで学習・評価: [training.md](training.md) / [benchmarking.md](benchmarking.md)
