@@ -1,0 +1,33 @@
+# Example Nav2 controller_server configuration using the VFHController, a
+# reactive Vector Field Histogram Plus local controller that upstream Nav2 does
+# not provide (it ships DWB, MPPI, Regulated Pure Pursuit). Drop-in replacement
+# for the FollowPath controller plugin. See nav2_vfh_controller/README.md.
+#
+# VFH+ builds a polar histogram of obstacles around the robot (each enlarged by
+# the robot radius) and steers toward the free angular sector best balancing goal
+# heading, turning effort, and steering smoothness. It is a cheap reactive method
+# with no trajectory rollout — robust in clutter, but it does not optimise a
+# trajectory the way MPPI/DWB do.
+
+controller_server:
+  ros__parameters:
+    controller_frequency: 20.0
+    controller_plugins: ["FollowPath"]
+
+    FollowPath:
+      plugin: "nav2_vfh_controller::VFHController"
+      num_sectors: 72            # polar histogram resolution (sectors over 360 deg)
+      active_window: 2.0         # histogram radius around the robot [m]
+      obstacle_threshold: 253    # costs >= this count as obstacles (default INSCRIBED)
+      allow_unknown: true        # treat unknown costmap cells as traversable
+      robot_radius: 0.2          # obstacle enlargement radius [m]
+      safety_distance: 0.1       # extra enlargement margin [m]
+      min_valley_sectors: 1      # required free width around a candidate sector
+      lookahead_distance: 0.6    # carrot distance along the global plan [m]
+      max_linear_speed: 0.5      # [m/s]
+      max_angular_speed: 1.5     # [rad/s]
+      angular_gain: 1.5          # proportional steering gain
+      goal_dist_tolerance: 0.25  # stop within this distance of the goal [m]
+      mu_target: 5.0             # cost weight: alignment with goal direction
+      mu_heading: 2.0            # cost weight: turning away from straight ahead
+      mu_smooth: 2.0             # cost weight: change from previous direction

@@ -399,6 +399,7 @@ flowchart TD
 | `/nav2_lazy_theta_star_planner` | classical any-angle GlobalPlanner（Lazy Theta\*、LOS 遅延）。upstream の eager Theta\* と別変種。Nav2 に無い planner 群（非AI） |
 | `/nav2_ara_star_planner` | classical anytime GlobalPlanner（ARA\*、ε を下げ bounded-suboptimal 解を漸進改善）。Nav2 に無い planner 群（非AI） |
 | `/nav2_visibility_graph_planner` | classical 幾何 GlobalPlanner（visibility graph、障害物凸コーナー + A\*）。Nav2 に無い planner 群（非AI） |
+| `/nav2_vfh_controller` | classical reactive Controller（VFH+、極座標ヒストグラムで局所回避、Mode A）。Nav2 に無い planner 群（非AI） |
 | `/nav2_planner_benchmarks` | classical GlobalPlanner 8種の同一シナリオ比較（経路長/pose/時間 → docs/planner_comparison.md） |
 | `/nav2_diffusion_msgs` | trajectory candidates, diagnostics, benchmark result messages |
 | `/nav2_diffusion_safety` | safety gate, collision validation integration |

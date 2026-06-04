@@ -8,6 +8,20 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
 ### Added
 
+- **Classical VFH+ local controller** — `nav2_vfh_controller::VFHController`, a
+  reactive Vector Field Histogram Plus `nav2_core::Controller` in the new
+  `nav2_vfh_controller` package — the repo's first classical Controller (Mode A),
+  alongside the generative `nav2_diffusion_controller`. VFH+ (Ulrich &
+  Borenstein, 1998) builds a polar histogram of obstacles around the robot (each
+  enlarged by the robot radius so a free sector is traversable), reduces it to
+  free/blocked angular sectors, and steers toward the free sector best balancing
+  goal heading, turning effort, and steering smoothness — a cheap reactive method
+  with no trajectory rollout. Upstream Nav2 ships only optimisation-based local
+  controllers (DWB, MPPI, Regulated Pure Pursuit); it has no VFH. Deterministic.
+  Closed-loop gtests vs a live `Costmap2DROS` with a static TF (drives straight
+  on a clear path, steers around an obstacle dead ahead while still advancing,
+  stops with no plan, stops at the goal), registered via pluginlib, added to CI
+  and a bringup controller_server example.
 - **Classical planner comparison benchmark** — `nav2_planner_benchmarks`
   (`planner_benchmark` executable) loads all eight classical
   `nav2_core::GlobalPlanner` plugins via pluginlib and runs them on shared

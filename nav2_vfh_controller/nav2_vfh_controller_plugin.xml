@@ -1,0 +1,15 @@
+<library path="nav2_vfh_controller">
+  <class
+    type="nav2_vfh_controller::VFHController"
+    base_class_type="nav2_core::Controller">
+    <description>
+      Vector Field Histogram Plus (VFH+) reactive local controller. Builds a polar
+      histogram of obstacles around the robot (each enlarged by the robot radius),
+      reduces it to free/blocked angular sectors, and steers toward the free
+      sector best balancing goal heading, turning effort, and smoothness.
+      Classical (non-learned) and not part of upstream Nav2 (which ships DWB,
+      MPPI, Regulated Pure Pursuit). Stops when no plan is set or the goal is
+      reached.
+    </description>
+  </class>
+</library>
