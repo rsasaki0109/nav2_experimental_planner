@@ -6,6 +6,23 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-04
+
+Theme: **the first learned models in the loop.** v0.4.0 added classical breadth and
+v0.5.0 made the catalog usable; this release makes the *generative* charter real.
+Until now the "Learned models propose. Classical safety disposes. Nav2 executes."
+tagline was carried entirely by analytic placeholders — no trained model ran
+anywhere. v0.6.0 ships the first two curated learned models, both end-to-end through
+the real C++ ONNX inference path (not unit-test fixtures): a costmap-conditioned
+flow **path** model (Mode B global planner) and a costmap-conditioned flow
+**trajectory** model (Mode A local controller). Both read the costmap and bias every
+proposal to the open side; the deterministic layers gate them. The model zoo is now
+populated (with manifests, model cards, and reproducible export scripts), both
+comparison benchmarks run a learned entry, and the learned Mode A controller reaches
+the goal closed-loop in the open scenario. Honest throughout about where the small
+synthetic models hit their ceiling — the architecture works end-to-end; the models
+are the limit.
+
 ### Added
 
 - **Learned model in the loop for Mode A (local controller).** The headline
@@ -444,6 +461,7 @@ deterministic safety layer and a benchmark suite. Matches the v0.1 theme
   simulated LiDAR; DDS discovery flakiness). The underlying logic is unit-tested.
 - This is not a safety-certified product; see [docs/safety.md](docs/safety.md).
 
+[0.6.0]: https://github.com/rsasaki0109/nav2_experimental_planner/releases/tag/v0.6.0
 [0.5.0]: https://github.com/rsasaki0109/nav2_experimental_planner/releases/tag/v0.5.0
 [0.4.0]: https://github.com/rsasaki0109/nav2_experimental_planner/releases/tag/v0.4.0
 [0.3.0]: https://github.com/rsasaki0109/nav2_experimental_planner/releases/tag/v0.3.0

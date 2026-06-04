@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>nav2_diffusion_controller</name>
-  <version>0.5.0</version>
+  <version>0.6.0</version>
   <description>
     Nav2 Controller plugin (v0.1 skeleton) for generative local planning:
     proposes candidate trajectories, validates them with a deterministic safety

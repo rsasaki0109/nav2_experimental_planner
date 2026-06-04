@@ -2,13 +2,17 @@
 
 > 関連: [architecture.md](architecture.md)、[risks.md](risks.md)
 
-## 実装状況（v0.5.0 時点）
+## 実装状況（v0.6.0 時点）
 
 以下は計画（後続セクション）に対する現状サマリ。一部は計画を先取りして実装済み。なお
 v0.4.0 以降、リポジトリの charter は「生成型」から「**Nav2 公式に無い実験的 planner 全般
 （生成型 + classical）**」へ広がり、本ロードマップ（生成系中心）の外側に classical な
 GlobalPlanner 8 種・reactive Controller 2 種・横断比較ベンチ・選択ガイドが加わっている
 （[CHANGELOG.md](../CHANGELOG.md) / [choosing_a_planner.md](choosing_a_planner.md)）。
+v0.6.0 で **初の学習済みモデルがループに入った**: [model_zoo](../model_zoo) に Mode A
+（trajectory）/ Mode B（path）の costmap 条件付き flow モデルを収録し、実 C++ ONNX 推論で
+稼働（learned Mode A は open シナリオで閉ループ goal 到達）。これで「学習パイプライン →
+ONNX → C++ 推論 → 安全層 → Nav2」が placeholder でなく実モデルで一周した。
 
 | 項目 | 計画 | 状況 |
 |---|---|---|
