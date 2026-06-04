@@ -6,6 +6,22 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
 ## [Unreleased]
 
+### Added
+- **Transformer trajectory model family** (`TransformerPlanner` /
+  `CostmapTransformerPlanner` in `nav2_diffusion_training.generative_planners`) —
+  the fourth generative family on the `OnnxTrajectoryModel` contract, alongside
+  flow / diffusion / consistency. A DETR-style set-prediction decoder: K learned
+  query tokens cross-attend to a context token (plus tokenized costmap patch for
+  the costmap-conditioned variant) and each decodes a full SE(2) trajectory in a
+  single deterministic forward pass — multimodality comes from the distinct
+  queries, not from sampling noise. Self-contained attention (no
+  `nn.MultiheadAttention`) so the ONNX export is small and backend-agnostic; loads
+  into the existing C++ backend with no changes (same `context [1,4]` +
+  `costmap [1,1,S,S]` → `[1,K,H,3]` contract). No surveyed work open-sources a
+  transformer local trajectory planner integrated with Nav2. Tests cover the ONNX
+  contract for both variants and verify the costmap-conditioned model learns to
+  veer away from a one-sided obstacle.
+
 ## [0.8.0] - 2026-06-04
 
 Theme: **deeper coupling and closed-loop training.** v0.7.0 made generative+classical

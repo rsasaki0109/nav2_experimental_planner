@@ -28,7 +28,7 @@ torch = pytest.importorskip('torch')
 pytest.importorskip('onnx')
 
 
-@pytest.mark.parametrize('kind', ['flow', 'diffusion', 'consistency'])
+@pytest.mark.parametrize('kind', ['flow', 'diffusion', 'consistency', 'transformer'])
 def test_train_export_load_contract(kind, tmp_path):
     """A trained planner exports an ONNX model matching context[1,4]->[1,K,H,3]."""
     from nav2_diffusion_training.generative_planners import train_and_export
@@ -46,7 +46,7 @@ def test_train_export_load_contract(kind, tmp_path):
     assert np.isfinite(out).all()
 
 
-@pytest.mark.parametrize('kind', ['flow', 'diffusion', 'consistency'])
+@pytest.mark.parametrize('kind', ['flow', 'diffusion', 'consistency', 'transformer'])
 def test_costmap_conditioned_exports_two_input_onnx(kind, tmp_path):
     """Each costmap-conditioned family exports a context+costmap ONNX model."""
     from nav2_diffusion_training.generative_planners import (
@@ -83,3 +83,37 @@ def test_flow_training_reduces_loss():
         loss.backward()
         opt.step()
     assert loss.item() < first
+
+
+def test_costmap_transformer_reads_costmap_and_reduces_loss():
+    """The transformer set-prediction planner fits the costmap-aware expert.
+
+    A short run reduces the reconstruction loss, and after training every candidate
+    veers away from a one-sided obstacle — i.e. the queries actually attend to the
+    costmap rather than emitting a fixed shape.
+    """
+    from nav2_diffusion_training.generative_planners import (
+        CostmapTransformerPlanner, make_costmap_dataset)
+    torch.manual_seed(0)
+    model = CostmapTransformerPlanner()
+    context, costmap, target = make_costmap_dataset(48)
+    opt = torch.optim.Adam(model.parameters(), lr=0.01)
+    first = model.recon_loss(context, costmap, target).item()
+    for _ in range(200):
+        opt.zero_grad()
+        loss = model.recon_loss(context, costmap, target)
+        loss.backward()
+        opt.step()
+    assert loss.item() < first
+
+    # Obstacle on +y (left, low columns) -> every candidate should bow to -y. The
+    # expert's half-sine bow is zero at both endpoints, so test the mean lateral
+    # offset over the horizon rather than the final point.
+    model.eval()
+    s = costmap.shape[-1]
+    patch = torch.zeros(1, 1, s, s)
+    patch[:, :, s // 4:s // 2, 0:s // 2] = 1.0
+    ctx = torch.tensor([[1.0, 0.0, 0.3, 1.0]], dtype=torch.float32)
+    with torch.no_grad():
+        out = model(ctx, patch)               # [1, K, H, 3]
+    assert (out[0, :, :, 1].mean(dim=1) < 0.0).all()   # mean lateral offset is -y

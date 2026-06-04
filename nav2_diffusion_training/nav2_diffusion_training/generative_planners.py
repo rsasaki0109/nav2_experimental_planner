@@ -15,12 +15,15 @@
 """
 Generative trajectory-model families for the TrajectoryModel ONNX seam.
 
-Implements three goal-conditioned generative local planners that no surveyed
-work open-sources for ROS 2 Nav2 ground robots: flow matching (single/few-step),
-diffusion (DDIM), and a one-step distilled (consistency-style) planner. Each maps
-a context vector [goal_x, goal_y, linear_speed, max_angular] to K candidate SE(2)
-trajectories and exports to the C++ OnnxTrajectoryModel contract
-context [1, 4] -> trajectories [1, K, H, 3].
+Implements four goal-conditioned generative local planners that no surveyed work
+open-sources for ROS 2 Nav2 ground robots: flow matching (single/few-step),
+diffusion (DDIM), a one-step distilled (consistency-style) planner, and a
+transformer set-prediction planner (DETR-style learned query tokens, deterministic
+single forward). Each maps a context vector
+[goal_x, goal_y, linear_speed, max_angular] to K candidate SE(2) trajectories and
+exports to the C++ OnnxTrajectoryModel contract
+context [1, 4] -> trajectories [1, K, H, 3]. The costmap-conditioned variants add a
+[1, 1, S, S] egocentric patch input.
 
 PyTorch is a heavy optional dependency, imported here (not from __init__); tests
 skip when torch is unavailable.
@@ -203,6 +206,62 @@ class _CostmapEncoder(nn.Module):
         return self.net(costmap)
 
 
+class _CrossAttnBlock(nn.Module):
+    """One pre-norm transformer decoder block (multi-head cross-attention + FFN).
+
+    Implemented from primitives (matmul / softmax / layernorm / gelu) rather than
+    ``nn.MultiheadAttention`` so the ONNX export is small and self-contained with no
+    backend-specific attention ops.
+    """
+
+    def __init__(self, d, nhead):
+        super().__init__()
+        self.nhead = nhead
+        self.dh = d // nhead
+        self.q = nn.Linear(d, d)
+        self.k = nn.Linear(d, d)
+        self.v = nn.Linear(d, d)
+        self.o = nn.Linear(d, d)
+        self.n1 = nn.LayerNorm(d)
+        self.n2 = nn.LayerNorm(d)
+        self.ff = nn.Sequential(nn.Linear(d, 4 * d), nn.GELU(), nn.Linear(4 * d, d))
+
+    def _attend(self, q, kv):
+        b, nq, d = q.shape
+        nk = kv.shape[1]
+        h, dh = self.nhead, self.dh
+        qh = self.q(q).reshape(b, nq, h, dh).transpose(1, 2)   # [b, h, nq, dh]
+        kh = self.k(kv).reshape(b, nk, h, dh).transpose(1, 2)
+        vh = self.v(kv).reshape(b, nk, h, dh).transpose(1, 2)
+        att = (qh @ kh.transpose(-1, -2)) / math.sqrt(dh)
+        out = (att.softmax(dim=-1) @ vh).transpose(1, 2).reshape(b, nq, d)
+        return self.o(out)
+
+    def forward(self, q, kv):
+        q = q + self._attend(self.n1(q), kv)
+        return q + self.ff(self.n2(q))
+
+
+class _CostmapTokenizer(nn.Module):
+    """Tokenize an egocentric costmap patch into spatial tokens for attention.
+
+    A strided conv turns the COSTMAP_SIZE patch into a coarse feature grid whose
+    cells become a token sequence with learned positional embeddings.
+    """
+
+    def __init__(self, d_model):
+        super().__init__()
+        self.proj = nn.Conv2d(1, d_model, kernel_size=4, stride=4)
+        n = (COSTMAP_SIZE // 4) ** 2
+        self.pos = nn.Parameter(torch.randn(1, n, d_model) * 0.1)
+
+    def forward(self, costmap):
+        x = self.proj(costmap)                       # [B, D, S/4, S/4]
+        b, d, gh, gw = x.shape
+        x = x.reshape(b, d, gh * gw).transpose(1, 2)  # [B, N, D]
+        return x + self.pos
+
+
 class CostmapFlowPlanner(nn.Module):
     """Costmap+goal conditioned flow matching (the surveyed OSS gap for Nav2)."""
 
@@ -332,6 +391,79 @@ class CostmapConsistencyPlanner(nn.Module):
         return torch.cat(outs, dim=1)
 
 
+_TF_DIM = 32      # transformer token width
+_TF_HEADS = 4
+_TF_LAYERS = 2
+
+
+class TransformerPlanner(nn.Module):
+    """Context-only transformer set-prediction planner (no costmap).
+
+    A DETR-style decoder: ``NUM_CANDIDATES`` learned query tokens cross-attend to a
+    single context token and each decodes a full SE(2) trajectory in one forward
+    pass. Multimodality comes from the distinct learned queries, not from sampling
+    noise, so it is deterministic and single-step — the transformer member of the
+    generative family, complementing flow / diffusion / consistency.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.ctx = nn.Linear(4, _TF_DIM)
+        self.blocks = nn.ModuleList(
+            [_CrossAttnBlock(_TF_DIM, _TF_HEADS) for _ in range(_TF_LAYERS)])
+        self.queries = nn.Parameter(torch.randn(NUM_CANDIDATES, _TF_DIM) * 0.1)
+        self.head = nn.Sequential(nn.LayerNorm(_TF_DIM), nn.Linear(_TF_DIM, TRAJ))
+
+    def forward(self, context):
+        b = context.shape[0]
+        memory = self.ctx(context).unsqueeze(1)                  # [B, 1, D]
+        q = self.queries.unsqueeze(0).expand(b, -1, -1)          # [B, K, D]
+        for blk in self.blocks:
+            q = blk(q, memory)
+        return self.head(q).reshape(b, NUM_CANDIDATES, HORIZON, DIM)
+
+    def recon_loss(self, context, target):
+        """Direct regression of the K candidates onto the expert (set targets)."""
+        return ((self(context) - target.unsqueeze(1)) ** 2).mean()
+
+
+class CostmapTransformerPlanner(nn.Module):
+    """Costmap+goal conditioned transformer set-prediction planner.
+
+    The memory is a context token concatenated with costmap patch tokens; the K
+    learned query tokens cross-attend over it and each decodes a full SE(2)
+    trajectory in a single forward pass (no iterative sampling). This is the fourth
+    model family on the OnnxTrajectoryModel contract — no surveyed work
+    open-sources a transformer local trajectory planner integrated with Nav2.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.tok = _CostmapTokenizer(_TF_DIM)
+        self.ctx = nn.Linear(4, _TF_DIM)
+        self.blocks = nn.ModuleList(
+            [_CrossAttnBlock(_TF_DIM, _TF_HEADS) for _ in range(_TF_LAYERS)])
+        self.queries = nn.Parameter(torch.randn(NUM_CANDIDATES, _TF_DIM) * 0.1)
+        self.head = nn.Sequential(nn.LayerNorm(_TF_DIM), nn.Linear(_TF_DIM, TRAJ))
+
+    def _memory(self, context, costmap):
+        tokens = self.tok(costmap)                               # [B, N, D]
+        ctx = self.ctx(context).unsqueeze(1)                     # [B, 1, D]
+        return torch.cat([ctx, tokens], dim=1)                  # [B, 1 + N, D]
+
+    def forward(self, context, costmap):
+        b = context.shape[0]
+        memory = self._memory(context, costmap)
+        q = self.queries.unsqueeze(0).expand(b, -1, -1)          # [B, K, D]
+        for blk in self.blocks:
+            q = blk(q, memory)
+        return self.head(q).reshape(b, NUM_CANDIDATES, HORIZON, DIM)
+
+    def recon_loss(self, context, costmap, target):
+        """Direct regression of the K candidates onto the costmap-aware expert."""
+        return ((self(context, costmap) - target.unsqueeze(1)) ** 2).mean()
+
+
 def _expert_trajectory(gx, gy, side, speed):
     """
     ~1 s expert that *pursues* the carrot (gx, gy) along a constant-curvature arc
@@ -427,11 +559,13 @@ _COSTMAP_BUILD = {
     'flow': CostmapFlowPlanner,
     'diffusion': CostmapDiffusionPlanner,
     'consistency': CostmapConsistencyPlanner,
+    'transformer': CostmapTransformerPlanner,
 }
 _COSTMAP_LOSS = {
     'flow': lambda m, c, cm, t: m.flow_loss(c, cm, t),
     'diffusion': lambda m, c, cm, t: m.diffusion_loss(c, cm, t),
     'consistency': lambda m, c, cm, t: m.distill_loss(c, cm, t),
+    'transformer': lambda m, c, cm, t: m.recon_loss(c, cm, t),
 }
 
 
@@ -480,17 +614,20 @@ _LOSS = {
     'flow': lambda m, c, t: m.flow_loss(c, t),
     'diffusion': lambda m, c, t: m.diffusion_loss(c, t),
     'consistency': lambda m, c, t: m.distill_loss(c, t),
+    'transformer': lambda m, c, t: m.recon_loss(c, t),
 }
 
 
 def build_planner(kind):
-    """Instantiate a planner by family name: flow / diffusion / consistency."""
+    """Instantiate a planner by family: flow / diffusion / consistency / transformer."""
     if kind == 'flow':
         return FlowMatchingPlanner()
     if kind == 'diffusion':
         return DiffusionPlanner()
     if kind == 'consistency':
         return ConsistencyPlanner()
+    if kind == 'transformer':
+        return TransformerPlanner()
     raise ValueError('unknown planner kind: ' + kind)
 
 

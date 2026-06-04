@@ -28,7 +28,7 @@ v0.8.0 で **密結合 guided ハイブリッド**（常に完全 A* + 提案近
 | multimodal 候補生成 + Trajectory Scorer | v0.1 | ✅ |
 | TrajectoryModel plugin seam | v0.5/v2.0 | ✅ 先取り（pluginlib で実行時ロード） |
 | ONNX Runtime backend | v0.5 | ✅ 先取り（optional パッケージ） |
-| 生成モデル3系統（diffusion / flow / consistency） | v2.0 | ✅ 先取り（context-only + costmap 条件付き両方） |
+| 生成モデル4系統（diffusion / flow / consistency / transformer） | v2.0 | ✅ 先取り（context-only + costmap 条件付き両方。transformer = DETR 風 set-prediction） |
 | **costmap+goal 条件付き生成** | v0.1 theme | ✅（heading-aligned egocentric パッチ、ONNX 2入力） |
 | 学習パイプライン（rosbag/expert→dataset→PyTorch→ONNX） | v0.5 | ✅ |
 | RViz 可視化（候補/棄却理由/安全状態） | v0.1 | ✅ |
