@@ -142,17 +142,31 @@ double VFHController::sectorAngle(int k) const
 
 double VFHController::lookaheadBearing(const geometry_msgs::msg::PoseStamped & robot_pose) const
 {
-  // Pick the first plan pose at least lookahead_distance away (else the last).
+  // Find the plan pose nearest the robot, then look ahead FORWARD from there for
+  // the first pose at least lookahead_distance away (else the last). Searching
+  // from the nearest index avoids latching onto already-passed poses behind the
+  // robot, which would point the carrot backwards.
+  const double rx = robot_pose.pose.position.x;
+  const double ry = robot_pose.pose.position.y;
+  std::size_t nearest = 0;
+  double nearest_d = std::numeric_limits<double>::max();
+  for (std::size_t i = 0; i < global_plan_.poses.size(); ++i) {
+    const double d = std::hypot(
+      global_plan_.poses[i].pose.position.x - rx,
+      global_plan_.poses[i].pose.position.y - ry);
+    if (d < nearest_d) {
+      nearest_d = d;
+      nearest = i;
+    }
+  }
   geometry_msgs::msg::PoseStamped selected;
   selected.header = global_plan_.header;
   selected.pose = global_plan_.poses.back().pose;
-  const double rx = robot_pose.pose.position.x;
-  const double ry = robot_pose.pose.position.y;
-  for (const auto & stamped : global_plan_.poses) {
-    const double dx = stamped.pose.position.x - rx;
-    const double dy = stamped.pose.position.y - ry;
+  for (std::size_t i = nearest; i < global_plan_.poses.size(); ++i) {
+    const double dx = global_plan_.poses[i].pose.position.x - rx;
+    const double dy = global_plan_.poses[i].pose.position.y - ry;
     if (std::hypot(dx, dy) >= lookahead_distance_) {
-      selected.pose = stamped.pose;
+      selected.pose = global_plan_.poses[i].pose;
       break;
     }
   }

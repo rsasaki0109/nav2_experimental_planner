@@ -22,9 +22,11 @@
   <depend>nav2_core</depend>
   <depend>nav2_costmap_2d</depend>
   <depend>pluginlib</depend>
+  <depend>tf2</depend>
+  <depend>tf2_geometry_msgs</depend>
   <depend>tf2_ros</depend>
 
-  <!-- Planner plugins loaded at runtime by class name. -->
+  <!-- Planner / controller plugins loaded at runtime by class name. -->
   <exec_depend>nav2_rrt_planner</exec_depend>
   <exec_depend>nav2_prm_planner</exec_depend>
   <exec_depend>nav2_dstar_lite_planner</exec_depend>
@@ -32,6 +34,8 @@
   <exec_depend>nav2_lazy_theta_star_planner</exec_depend>
   <exec_depend>nav2_ara_star_planner</exec_depend>
   <exec_depend>nav2_visibility_graph_planner</exec_depend>
+  <exec_depend>nav2_vfh_controller</exec_depend>
+  <exec_depend>nav2_nd_controller</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

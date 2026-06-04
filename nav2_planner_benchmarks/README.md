@@ -12,6 +12,14 @@ ros2 run nav2_planner_benchmarks planner_benchmark > docs/planner_comparison.md
 
 結果は [../docs/planner_comparison.md](../docs/planner_comparison.md)（コミット済み・再現可能）。
 
+reactive Controller（VFH+ / ND）の閉ループ比較も同梱:
+
+```bash
+ros2 run nav2_planner_benchmarks controller_benchmark > docs/controller_comparison.md
+```
+
+unicycle モデルで costmap 上をロールアウトし、到達可否・経路長・最小クリアランス・操舵の滑らかさ・回廊中央寄せを計測する。結果は [../docs/controller_comparison.md](../docs/controller_comparison.md)。
+
 ## 比較対象（すべて Nav2 公式に無い `nav2_core::GlobalPlanner`）
 
 | planner | パラダイム | パッケージ |

@@ -15,6 +15,8 @@ set(dependencies
   nav2_core
   nav2_costmap_2d
   pluginlib
+  tf2
+  tf2_geometry_msgs
   tf2_ros
 )
 
@@ -26,8 +28,12 @@ add_executable(planner_benchmark src/planner_benchmark.cpp)
 target_compile_features(planner_benchmark PUBLIC cxx_std_17)
 ament_target_dependencies(planner_benchmark ${dependencies})
 
+add_executable(controller_benchmark src/controller_benchmark.cpp)
+target_compile_features(controller_benchmark PUBLIC cxx_std_17)
+ament_target_dependencies(controller_benchmark ${dependencies})
+
 install(
-  TARGETS planner_benchmark
+  TARGETS planner_benchmark controller_benchmark
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 

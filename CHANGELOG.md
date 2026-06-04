@@ -8,6 +8,13 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
 ### Added
 
+- **Reactive controller comparison benchmark** — `controller_benchmark`
+  (`nav2_planner_benchmarks`) rolls out the VFH+ and ND controllers closed-loop
+  against a live `Costmap2DROS` with a unicycle model on shared scenarios (open,
+  frontal obstacle, off-centre corridor), recording goal success, path length,
+  minimum clearance, steering smoothness, and corridor centring, and writes
+  `docs/controller_comparison.md`. Both controllers clear the obstacles and reach
+  the goal; they trade berth against smoothness with neither dominating.
 - **Classical ND (Nearness Diagram) local controller** —
   `nav2_nd_controller::NDController`, a second reactive `nav2_core::Controller`
   (a different paradigm from VFH+). ND (Minguez & Montano, 2004) scores per-sector
@@ -20,6 +27,17 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
   live `Costmap2DROS` (clear path, frontal obstacle, **deflection away from a
   close right-side obstacle**, no plan, at goal), registered via pluginlib, added
   to CI and a bringup controller_server example.
+
+### Fixed
+
+- **Lookahead carrot could point backwards** in `VFHController` and `NDController`:
+  the lookahead picked the first plan pose at least `lookahead_distance` from the
+  robot scanning from the plan start, so once the robot had advanced, already-
+  passed poses behind it satisfied the distance first and the carrot flipped
+  backwards — making the controller spin in place. Both now find the nearest plan
+  pose and look ahead forward from there. Surfaced by the new
+  `controller_benchmark` closed-loop rollout (single-call unit tests did not catch
+  it).
 
 ## [0.4.0] - 2026-06-04
 
