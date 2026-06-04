@@ -72,6 +72,10 @@ protected:
   /// True if the world point is in-bounds and below the lethal cost threshold.
   bool isCellTraversable(double wx, double wy) const;
 
+  /// Copy the global costmap (normalized [0, 1]) + geometry into the context so
+  /// costmap-conditioned PathModels can read it.
+  void fillCostmap(nav2_diffusion_core::PathContext & ctx) const;
+
   rclcpp_lifecycle::LifecycleNode::WeakPtr node_;
   std::shared_ptr<tf2_ros::Buffer> tf_;
   std::shared_ptr<nav2_costmap_2d::Costmap2DROS> costmap_ros_;
@@ -86,6 +90,7 @@ protected:
   double interpolation_resolution_{0.05};
   bool allow_unknown_{true};
   double max_bow_fraction_{0.5};
+  bool provide_costmap_{true};
   std::string model_plugin_;
   std::string model_path_;
 

@@ -86,3 +86,53 @@ def test_path_flow_training_reduces_loss():
         loss.backward()
         opt.step()
     assert loss.item() < first
+
+
+def test_costmap_path_planner_exports_two_input_contract(tmp_path):
+    """The costmap-conditioned path planner exports a context+costmap ONNX model."""
+    from nav2_diffusion_training.path_planners import (
+        PATH_COSTMAP_SIZE, PATH_H, PATH_K, train_and_export_costmap_path)
+
+    path = os.path.join(str(tmp_path), 'costmap_path.onnx')
+    train_and_export_costmap_path(path, num_samples=12, epochs=3)
+
+    ort = pytest.importorskip('onnxruntime')
+    import numpy as np
+    session = ort.InferenceSession(path, providers=['CPUExecutionProvider'])
+    names = {i.name for i in session.get_inputs()}
+    assert names == {'context', 'costmap'}
+    ctx = np.array([[4.0, 0.0]], dtype=np.float32)
+    cm = np.zeros((1, 1, PATH_COSTMAP_SIZE, PATH_COSTMAP_SIZE), dtype=np.float32)
+    out = session.run(None, {'context': ctx, 'costmap': cm})[0]
+    assert out.shape == (1, PATH_K, PATH_H, 2)
+    assert np.isfinite(out).all()
+
+
+def test_costmap_path_loss_decreases_and_reads_costmap():
+    """Costmap-conditioned flow loss decreases and the encoder uses the patch.
+
+    The trained model's learned avoidance *direction* is checked deterministically
+    in the C++ backend gtest (OnnxPathModelTest.CostmapConditionedVeersAwayFrom
+    Obstacle); here we keep a fast check that training reduces the loss and that
+    swapping the costmap changes the output (i.e. the patch is actually read).
+    """
+    from nav2_diffusion_training.path_planners import (
+        _aligned_patch, CostmapPathFlowPlanner, make_costmap_path_dataset)
+    torch.manual_seed(0)
+    model = CostmapPathFlowPlanner()
+    context, costmap, target = make_costmap_path_dataset(24)
+    opt = torch.optim.Adam(model.parameters(), lr=0.02)
+    first = model.flow_loss(context, costmap, target).item()
+    for _ in range(30):
+        opt.zero_grad()
+        loss = model.flow_loss(context, costmap, target)
+        loss.backward()
+        opt.step()
+    assert loss.item() < first
+    model.eval()
+    ctx = torch.tensor([[4.0, 0.0]])
+    with torch.no_grad():
+        left = model(ctx, _aligned_patch(1.0).unsqueeze(0))
+        right = model(ctx, _aligned_patch(-1.0).unsqueeze(0))
+    # Different costmaps must yield different proposals (the patch is read).
+    assert (left - right).abs().max().item() > 1e-3

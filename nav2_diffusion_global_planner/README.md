@@ -39,6 +39,7 @@ Nav2 GlobalPlanner Plugin integration（Mode B）。
 | `interpolation_resolution` | 0.05 | 衝突判定のためのサンプル間隔 [m] |
 | `allow_unknown` | true | costmap の unknown セルを通行可能とみなすか |
 | `max_bow_fraction` | 0.5 | `FanPathModel` の最大膨らみ量（start-goal 距離に対する比） |
+| `provide_costmap` | true | 正規化した大域 costmap を `PathContext` に詰めて costmap 条件付きモデルへ渡す（analytic モデルは無視。検証層は常に独立して衝突判定する） |
 | `model_plugin` | "" | 生成パスモデルの `PathModel` plugin 名。空で組み込み `FanPathModel` |
 | `model_path` | "" | `model_plugin` の `configure()` に渡すモデルパス（例: ONNX ファイル） |
 
@@ -70,6 +71,8 @@ planner_server:
 ```
 
 モデルは goal-aligned frame で K 個の多峰な候補パスを生成し、backend が map frame へ戻す。**候補の検証・選択は変わらず決定論的安全層が担う**（モデルは提案するだけ）。契約は [../nav2_diffusion_onnx/README.md](../nav2_diffusion_onnx/README.md) を参照。
+
+**costmap 条件付きモデル**（`train_and_export_costmap_path` で学習）を使う場合、planner が `provide_costmap:=true`（既定）で大域 costmap を渡し、backend が goal-aligned パッチにリサンプルして供給する。モデルは障害物の無い側へ候補を寄せる＝costmap を読んだ賢い提案になる（local controller の costmap 条件付けと対称）。`model_plugin`/`model_path` の指定方法は context-only モデルと同じ。
 
 ## 関連
 

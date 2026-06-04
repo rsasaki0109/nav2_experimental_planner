@@ -32,6 +32,12 @@ namespace nav2_diffusion_onnx
 /// translates each candidate back into the map frame using the start pose and
 /// goal bearing, and snaps the endpoints exactly onto start/goal.
 ///
+/// Costmap-conditioned models that export a second input named "costmap" are
+/// auto-detected: the global costmap carried in PathContext is resampled into a
+/// goal-aligned S x S patch (aligned x in [0, PATCH_FWD], y in
+/// [-PATCH_HALF, PATCH_HALF]) and fed alongside the context. Context-only models
+/// (no "costmap" input) are unaffected.
+///
 /// Default-constructible so it can be loaded via pluginlib by the
 /// DiffusionGlobalPlanner (model_plugin); call configure() with the ONNX path.
 class OnnxPathModel : public nav2_diffusion_core::PathModel
@@ -45,11 +51,20 @@ public:
   std::vector<nav2_diffusion_core::PathCandidate> generate(
     const nav2_diffusion_core::PathContext & context) const override;
 
+  // Goal-aligned patch window, shared with the training side
+  // (nav2_diffusion_training.path_planners). The patch covers aligned x in
+  // [0, kPatchFwd] and y in [-kPatchHalf, kPatchHalf]; row -> x, col -> y.
+  static constexpr double kPatchFwd = 6.0;
+  static constexpr double kPatchHalf = 3.0;
+
 private:
   std::shared_ptr<Ort::Env> env_;
   mutable std::shared_ptr<Ort::Session> session_;
   std::string input_name_;
   std::string output_name_;
+  bool has_costmap_input_{false};
+  std::string costmap_name_;
+  int costmap_dim_{0};  // expected square patch side length
 };
 
 }  // namespace nav2_diffusion_onnx

@@ -37,6 +37,15 @@ from torch import nn
 PATH_K = 5            # candidate paths proposed
 PATH_H = 12           # waypoints per path
 PATH_DIM = 2          # x, y (aligned frame)
+# Goal-aligned costmap patch fed to the costmap-conditioned path model. The
+# patch covers a fixed physical window ahead of the start: aligned x in
+# [0, PATCH_FWD], aligned y in [-PATCH_HALF, PATCH_HALF], on a SIZE x SIZE grid
+# (row -> forward x, col -> lateral y). The C++ backend resamples the real
+# global costmap into this same window, so the learned avoidance transfers.
+PATH_COSTMAP_SIZE = 24
+PATCH_FWD = 6.0       # metres ahead covered by the patch
+PATCH_HALF = 3.0      # metres to each side covered by the patch
+PATH_EMBED = 16
 PATH_VEC = PATH_H * PATH_DIM
 CTX_DIM = 2           # [goal_distance, 0]
 
@@ -151,6 +160,148 @@ def train_and_export_path(path, num_samples=88, epochs=300, lr=0.01, steps=4):
     torch.onnx.export(
         model, dummy, path,
         input_names=['context'], output_names=['paths'],
+        opset_version=18)
+    onnx.save_model(onnx.load(path), path, save_as_external_data=False)
+    return float(loss.item())
+
+
+class _PathCostmapEncoder(nn.Module):
+    """Small CNN encoding a goal-aligned costmap patch to an embedding vector."""
+
+    def __init__(self):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Conv2d(1, 8, 3, stride=2, padding=1), nn.SiLU(),
+            nn.Conv2d(8, 16, 3, stride=2, padding=1), nn.SiLU(),
+            nn.AdaptiveAvgPool2d(1), nn.Flatten(),
+            nn.Linear(16, PATH_EMBED), nn.SiLU(),
+        )
+
+    def forward(self, costmap):
+        return self.net(costmap)
+
+
+class CostmapPathFlowPlanner(nn.Module):
+    """
+    Costmap+goal conditioned generative global-path planner (Nav2 Mode B).
+
+    Reads a goal-aligned costmap patch and proposes K start->goal paths that bias
+    toward the obstacle-free side. This is the global (Mode B) analogue of the
+    costmap-conditioned local planner; no surveyed work open-sources it for Nav2.
+    """
+
+    def __init__(self, steps=4):
+        super().__init__()
+        self.encoder = _PathCostmapEncoder()
+        self.field = nn.Sequential(
+            nn.Linear(PATH_VEC + CTX_DIM + PATH_EMBED + 1, 128), nn.SiLU(),
+            nn.Linear(128, 128), nn.SiLU(),
+            nn.Linear(128, PATH_VEC),
+        )
+        self.steps = steps
+        self.register_buffer('latents', _fixed_latents(13))
+
+    def velocity(self, x, context, embed, t):
+        return self.field(torch.cat([x, context, embed, t], dim=-1))
+
+    def flow_loss(self, context, costmap, target):
+        """Conditional flow-matching loss conditioned on the costmap patch."""
+        b = target.shape[0]
+        embed = self.encoder(costmap)
+        x1 = target.reshape(b, PATH_VEC)
+        x0 = torch.randn_like(x1)
+        t = torch.rand(b, 1)
+        xt = (1.0 - t) * x0 + t * x1
+        pred = self.velocity(xt, context, embed, t)
+        return ((pred - (x1 - x0)) ** 2).mean()
+
+    def forward(self, context, costmap):
+        embed = self.encoder(costmap)
+        outs = []
+        dt = 1.0 / self.steps
+        for k in range(PATH_K):
+            x = self.latents[k].unsqueeze(0).expand(context.shape[0], -1)
+            for i in range(self.steps):
+                t = torch.full((x.shape[0], 1), i * dt)
+                x = x + self.velocity(x, context, embed, t) * dt
+            outs.append(x.reshape(-1, 1, PATH_H, PATH_DIM))
+        return torch.cat(outs, dim=1)
+
+
+def _aligned_patch(side):
+    """
+    Build a patch (row->fwd x, col->lateral y) with an obstacle on one side.
+
+    side > 0 places the obstacle on the +y (left) half ahead, so the gap (and
+    the expert) is on the -y (right) side, and vice versa.
+    """
+    s = PATH_COSTMAP_SIZE
+    patch = torch.zeros(1, s, s)
+    # Obstacle band roughly mid-range ahead (x in ~[1.5, 4.0] m).
+    r0 = int(s * 1.5 / PATCH_FWD)
+    r1 = int(s * 4.0 / PATCH_FWD)
+    # Lateral half occupied by the obstacle (one side of centre col).
+    if side > 0:
+        c0, c1 = s // 2, s          # +y (left) half
+    else:
+        c0, c1 = 0, s // 2          # -y (right) half
+    patch[:, r0:r1, c0:c1] = 1.0
+    return patch
+
+
+def make_costmap_path_dataset(num_samples):
+    """
+    Goal-aligned paths that veer toward the obstacle-free side of the patch.
+
+    Each sample has a one-sided obstacle ahead; the expert path bows to the open
+    side, so the model must read the costmap to choose the avoidance direction.
+    """
+    contexts = []
+    patches = []
+    targets = []
+    for i in range(num_samples):
+        d = 3.0 + 2.0 * ((i * 5) % 7) / 6.0          # goal distance 3..5 m
+        side = 1.0 if (i % 2 == 0) else -1.0          # obstacle side
+        gap_sign = -side                              # veer to the open side
+        rows = []
+        for h in range(PATH_H):
+            t = h / (PATH_H - 1)
+            bump = t * (1.0 - t) * 4.0                # 0 at both ends
+            rows.append([t * d, gap_sign * 0.9 * bump])
+        contexts.append([d, 0.0])
+        patches.append(_aligned_patch(side))
+        targets.append(rows)
+    return (
+        torch.tensor(contexts, dtype=torch.float32),
+        torch.stack(patches),
+        torch.tensor(targets, dtype=torch.float32),
+    )
+
+
+def train_and_export_costmap_path(path, num_samples=96, epochs=400, lr=0.01, steps=4):
+    """Train CostmapPathFlowPlanner and export a 2-input (context+costmap) ONNX."""
+    torch.manual_seed(0)
+    model = CostmapPathFlowPlanner(steps=steps)
+    context, costmap, target = make_costmap_path_dataset(num_samples)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
+    model.train()
+    loss = torch.tensor(0.0)
+    for _ in range(max(1, epochs)):
+        optimizer.zero_grad()
+        loss = model.flow_loss(context, costmap, target)
+        out = model(context[:16], costmap[:16])             # [B, K, H, 2]
+        jerk = out[:, :, 2:, :] - 2 * out[:, :, 1:-1, :] + out[:, :, :-2, :]
+        loss = loss + 2.0 * (jerk ** 2).mean()              # smoothness
+        loss.backward()
+        optimizer.step()
+
+    model.eval()
+    dummy_ctx = torch.zeros(1, CTX_DIM)
+    dummy_map = torch.zeros(1, 1, PATH_COSTMAP_SIZE, PATH_COSTMAP_SIZE)
+    torch.onnx.export(
+        model, (dummy_ctx, dummy_map), path,
+        input_names=['context', 'costmap'], output_names=['paths'],
         opset_version=18)
     onnx.save_model(onnx.load(path), path, save_as_external_data=False)
     return float(loss.item())

@@ -29,6 +29,15 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
   endpoints onto start/goal. Set the planner's `model_plugin` to
   `nav2_diffusion_onnx::OnnxPathModel` to use it (planner stays free of any
   onnxruntime link, via pluginlib). Verified end to end in C++ gtests.
+- **Costmap-conditioned generative path model for Mode B** —
+  `CostmapPathFlowPlanner` (`path_planners`) reads a goal-aligned costmap patch
+  and proposes K paths that bias toward the obstacle-free side, exported as a
+  two-input ONNX (`context [1,2]` + `costmap [1,1,S,S]` -> `paths [1,K,H,2]`).
+  `OnnxPathModel` auto-detects the `costmap` input and resamples the global
+  costmap (passed by the planner) into the goal-aligned patch; the planner gains
+  a `provide_costmap` param. C++ gtest confirms candidates veer away from the
+  obstacle side with endpoints still anchored. The global analogue of the local
+  costmap-conditioned controller — no OSS equivalent for Nav2.
 - **Offline model-comparison leaderboard** — `tools/benchmark_models.py` +
   `nav2_diffusion_training.model_eval` (torch-free metrics: clearance, collision,
   progress, turning, success, safety-first ranking) trains the six generative

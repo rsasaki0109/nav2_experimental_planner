@@ -45,6 +45,7 @@ colcon build --packages-select nav2_diffusion_onnx \
 | 項目 | 形 |
 |---|---|
 | input `context` | float `[1, 2]` = `[goal_distance, 0]`（goal-aligned frame。goal は `(d, 0)`） |
+| input `costmap`（任意） | float `[1, 1, S, S]` = goal-aligned costmap パッチ（row→前方 x ∈ [0,6m], col→横 y ∈ [-3,3m]、正規化 [0,1]）。モデルがこの名前の入力を持つ場合のみ backend が大域 costmap から生成して供給する |
 | output `paths` | float `[1, K, H, 2]` = K 候補パス × H waypoint × (x, y)、goal-aligned frame |
 
-backend が start 姿勢と goal bearing で map frame に戻し、端点を start/goal にスナップする。学習・export は `nav2_diffusion_training.path_planners.train_and_export_path`（flow matching、多峰な detour を提案）。
+`costmap` 入力の有無は backend が自動検出する（無ければ context のみ＝後方互換）。backend は `DiffusionGlobalPlanner` が渡す大域 costmap を goal-aligned の S×S パッチにリサンプルし、推論後に start 姿勢と goal bearing で map frame に戻して端点を start/goal にスナップする。学習・export は `nav2_diffusion_training.path_planners` の `train_and_export_path`（context-only、多峰な detour）/ `train_and_export_costmap_path`（costmap 条件付き、障害物の無い側へ veer）。

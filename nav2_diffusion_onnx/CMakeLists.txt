@@ -113,6 +113,16 @@ if(BUILD_TESTING)
   )
   add_custom_target(generate_path_model DEPENDS "${_path_model}")
 
+  set(_costmap_path_model "${CMAKE_CURRENT_BINARY_DIR}/test_costmap_path_model.onnx")
+  add_custom_command(
+    OUTPUT "${_costmap_path_model}"
+    COMMAND ${CMAKE_COMMAND} -E env "PYTHONHOME=" python3
+            "${CMAKE_CURRENT_SOURCE_DIR}/scripts/make_costmap_path_model.py" "${_costmap_path_model}"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/scripts/make_costmap_path_model.py"
+    COMMENT "Generating ONNX costmap path fixture model"
+  )
+  add_custom_target(generate_costmap_path_model DEPENDS "${_costmap_path_model}")
+
   ament_add_gtest(test_onnx_trajectory_model test/test_onnx_trajectory_model.cpp
     APPEND_LIBRARY_DIRS "${ONNXRUNTIME_LIB_DIR}")
   add_dependencies(test_onnx_trajectory_model generate_test_model generate_costmap_model)
@@ -122,10 +132,11 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_onnx_path_model test/test_onnx_path_model.cpp
     APPEND_LIBRARY_DIRS "${ONNXRUNTIME_LIB_DIR}")
-  add_dependencies(test_onnx_path_model generate_path_model)
+  add_dependencies(test_onnx_path_model generate_path_model generate_costmap_path_model)
   target_link_libraries(test_onnx_path_model ${PROJECT_NAME})
   target_compile_definitions(test_onnx_path_model
-    PRIVATE ONNX_PATH_MODEL="${_path_model}")
+    PRIVATE ONNX_PATH_MODEL="${_path_model}"
+            ONNX_COSTMAP_PATH_MODEL="${_costmap_path_model}")
 endif()
 
 ament_package()

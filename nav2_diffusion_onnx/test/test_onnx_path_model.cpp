@@ -15,12 +15,16 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <vector>
 
 #include "nav2_diffusion_core/path_model.hpp"
 #include "nav2_diffusion_onnx/onnx_path_model.hpp"
 
 #ifndef ONNX_PATH_MODEL
 #define ONNX_PATH_MODEL ""
+#endif
+#ifndef ONNX_COSTMAP_PATH_MODEL
+#define ONNX_COSTMAP_PATH_MODEL ""
 #endif
 
 using nav2_diffusion_onnx::OnnxPathModel;
@@ -77,4 +81,59 @@ TEST(OnnxPathModelTest, RotatesIntoGoalBearing)
   const auto & mid = candidates[candidates.size() / 2].points[6];
   EXPECT_GT(mid.y, 1.0);                 // climbed toward the goal in +y
   EXPECT_LT(std::abs(mid.x), 1.0);       // little lateral drift in x
+}
+
+namespace
+{
+// A PathContext carrying a normalized global costmap with a rectangular obstacle
+// over world x in [1.5, 4.0] on one lateral side (sign>0 => +y / left half).
+nav2_diffusion_core::PathContext costmapContext(double obstacle_side)
+{
+  nav2_diffusion_core::PathContext ctx;
+  ctx.start_x = 0.0;
+  ctx.start_y = 0.0;
+  ctx.goal_x = 4.0;   // bearing 0 -> aligned frame == world frame
+  ctx.goal_y = 0.0;
+  const unsigned int sx = 60;   // x: 0..6 m
+  const unsigned int sy = 80;   // y: -4..4 m
+  ctx.costmap_size_x = sx;
+  ctx.costmap_size_y = sy;
+  ctx.costmap_resolution = 0.1;
+  ctx.costmap_origin_x = 0.0;
+  ctx.costmap_origin_y = -4.0;
+  ctx.costmap.assign(static_cast<std::size_t>(sx) * sy, 0.0f);
+  for (unsigned int my = 0; my < sy; ++my) {
+    const double wy = ctx.costmap_origin_y + (my + 0.5) * ctx.costmap_resolution;
+    for (unsigned int mx = 0; mx < sx; ++mx) {
+      const double wx = ctx.costmap_origin_x + (mx + 0.5) * ctx.costmap_resolution;
+      const bool ahead = wx > 1.5 && wx < 4.0;
+      // Signed lateral coordinate on the obstacle side (avoids "< -" literals).
+      const double side_y = obstacle_side * wy;
+      const bool on_side = side_y > 0.5 && side_y < 3.0;
+      if (ahead && on_side) {
+        ctx.costmap[static_cast<std::size_t>(my) * sx + mx] = 1.0f;
+      }
+    }
+  }
+  return ctx;
+}
+}  // namespace
+
+TEST(OnnxPathModelTest, CostmapConditionedVeersAwayFromObstacle)
+{
+  OnnxPathModel model(ONNX_COSTMAP_PATH_MODEL);
+
+  // Obstacle on the +y (left) side ahead -> candidates should bow toward -y.
+  const auto left = model.generate(costmapContext(+1.0));
+  ASSERT_FALSE(left.empty());
+  EXPECT_LT(left[left.size() / 2].points[6].y, -0.1);
+
+  // Obstacle on the -y (right) side ahead -> candidates should bow toward +y.
+  const auto right = model.generate(costmapContext(-1.0));
+  ASSERT_FALSE(right.empty());
+  EXPECT_GT(right[right.size() / 2].points[6].y, 0.1);
+
+  // Endpoints stay anchored regardless of the costmap.
+  EXPECT_DOUBLE_EQ(left.front().points.front().x, 0.0);
+  EXPECT_DOUBLE_EQ(left.front().points.back().x, 4.0);
 }

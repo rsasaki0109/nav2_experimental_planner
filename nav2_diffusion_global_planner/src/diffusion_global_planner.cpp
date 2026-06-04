@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <limits>
 #include <memory>
 #include <string>
@@ -53,6 +54,8 @@ void DiffusionGlobalPlanner::configure(
   declare_parameter_if_not_declared(
     node, name_ + ".max_bow_fraction", rclcpp::ParameterValue(0.5));
   declare_parameter_if_not_declared(
+    node, name_ + ".provide_costmap", rclcpp::ParameterValue(true));
+  declare_parameter_if_not_declared(
     node, name_ + ".model_plugin", rclcpp::ParameterValue(std::string("")));
   declare_parameter_if_not_declared(
     node, name_ + ".model_path", rclcpp::ParameterValue(std::string("")));
@@ -62,6 +65,7 @@ void DiffusionGlobalPlanner::configure(
   node->get_parameter(name_ + ".interpolation_resolution", interpolation_resolution_);
   node->get_parameter(name_ + ".allow_unknown", allow_unknown_);
   node->get_parameter(name_ + ".max_bow_fraction", max_bow_fraction_);
+  node->get_parameter(name_ + ".provide_costmap", provide_costmap_);
   node->get_parameter(name_ + ".model_plugin", model_plugin_);
   node->get_parameter(name_ + ".model_path", model_path_);
 
@@ -88,6 +92,33 @@ void DiffusionGlobalPlanner::cleanup()
 void DiffusionGlobalPlanner::activate() {}
 
 void DiffusionGlobalPlanner::deactivate() {}
+
+void DiffusionGlobalPlanner::fillCostmap(nav2_diffusion_core::PathContext & ctx) const
+{
+  const unsigned int sx = costmap_->getSizeInCellsX();
+  const unsigned int sy = costmap_->getSizeInCellsY();
+  ctx.costmap_size_x = sx;
+  ctx.costmap_size_y = sy;
+  ctx.costmap_resolution = costmap_->getResolution();
+  ctx.costmap_origin_x = costmap_->getOriginX();
+  ctx.costmap_origin_y = costmap_->getOriginY();
+  ctx.costmap.resize(static_cast<std::size_t>(sx) * sy);
+  for (unsigned int my = 0; my < sy; ++my) {
+    for (unsigned int mx = 0; mx < sx; ++mx) {
+      const unsigned char cost = costmap_->getCost(mx, my);
+      float value;
+      if (cost == nav2_costmap_2d::NO_INFORMATION) {
+        value = 0.0f;  // unknown -> free for the model; validity layer handles it
+      } else if (cost >= nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE) {
+        value = 1.0f;
+      } else {
+        value = static_cast<float>(cost) /
+          static_cast<float>(nav2_costmap_2d::INSCRIBED_INFLATED_OBSTACLE);
+      }
+      ctx.costmap[static_cast<std::size_t>(my) * sx + mx] = value;
+    }
+  }
+}
 
 bool DiffusionGlobalPlanner::isCellTraversable(double wx, double wy) const
 {
@@ -155,6 +186,12 @@ nav_msgs::msg::Path DiffusionGlobalPlanner::createPlan(
   ctx.goal_y = goal.pose.position.y;
   ctx.num_candidates = num_candidates_;
   ctx.num_points = num_points_;
+  // Hand the (normalized) global costmap to costmap-conditioned models; analytic
+  // models ignore it. The deterministic validity layer below remains the
+  // authority on collisions regardless.
+  if (provide_costmap_) {
+    fillCostmap(ctx);
+  }
   const auto candidates = model_->generate(ctx);
 
   // Dispose + select: keep the shortest collision-free candidate.
