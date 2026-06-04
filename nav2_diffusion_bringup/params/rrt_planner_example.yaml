@@ -1,0 +1,24 @@
+# Example Nav2 planner_server configuration using the RRTStarPlanner, a
+# sampling-based global planner that upstream Nav2 does not provide (it ships
+# only NavFn / Smac / Theta*, all search-based). Drop-in replacement for the
+# GridBased global planner plugin. See nav2_rrt_planner/README.md.
+#
+# Unlike the generative DiffusionGlobalPlanner's FanPathModel, RRT* searches the
+# free space, so it can route through gaps and around walls on cluttered maps.
+
+planner_server:
+  ros__parameters:
+    expected_planner_frequency: 20.0
+    planner_plugins: ["GridBased"]
+    costmap_update_timeout: 1.0
+
+    GridBased:
+      plugin: "nav2_rrt_planner::RRTStarPlanner"
+      max_iterations: 4000        # RRT* iteration budget
+      step_size: 0.5              # max steer edge length [m]
+      goal_bias: 0.1              # probability of sampling the goal directly
+      goal_tolerance: 0.25        # goal reach radius [m]
+      rewire_radius: 1.0          # RRT* neighbourhood rewiring radius [m]
+      interpolation_resolution: 0.05   # edge collision-check step [m]
+      allow_unknown: true        # treat unknown costmap cells as traversable
+      random_seed: 1             # fixed sampler seed for reproducibility

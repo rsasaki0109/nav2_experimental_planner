@@ -13,6 +13,7 @@ example launch/config for Nav2。
 | `params/nav2_diffusion_tb3.yaml` | nav2_bringup の `nav2_params.yaml` から **controller_server → FollowPath だけ** を `DiffusionController` に差し替えた完全な Nav2 params（他は Nav2 デフォルト） |
 | `params/diffusion_controller_example.yaml` | controller_server ブロックのみの最小スニペット（Mode A、ドキュメント用） |
 | `params/diffusion_global_planner_example.yaml` | planner_server ブロックのみの最小スニペット（Mode B、`DiffusionGlobalPlanner`） |
+| `params/rrt_planner_example.yaml` | planner_server ブロックのみの最小スニペット（classical、`RRTStarPlanner`） |
 | `launch/tb3_loopback_diffusion.launch.py` | loopback シムでの closed-loop demo |
 | `launch/tb3_gazebo_diffusion.launch.py` | Gazebo での closed-loop demo |
 | `launch/foxglove.launch.py` | Foxglove 可視化（`foxglove_bridge` + 候補/安全状態 marker 変換ノード） |

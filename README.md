@@ -18,6 +18,8 @@
 
 `nav2_experimental_planner` は Nav2 を置き換えるプロジェクトではありません。Nav2 の既存アーキテクチャ（Behavior Tree / Lifecycle Node / Planner・Controller Plugin / Costmap / Collision Monitor）を最大限活かしたうえで、その上に **Diffusion / Flow Matching / Consistency / Transformer / World Model 系の生成型ナビゲーションモデルを安全に接続する** ための OSS 基盤です。
 
+加えて、**Nav2 公式に無い planner（生成型に限らず classical も）** を実験的に収録します。第一弾の classical planner として、Nav2 がもたない**サンプリングベース** planner **RRT\***（[nav2_rrt_planner](nav2_rrt_planner)）を nav2_core::GlobalPlanner として実装済み。
+
 - **Scope:** AMR / Delivery Robot / Warehouse Robot / Service Robot
 - **Out of Scope:** Manipulation, MoveIt, Humanoid, Full VLA, Multi-Agent Planning（主目的としては扱わない）
 - **Core Positioning:** Nav2 Native な Generative Navigation Framework

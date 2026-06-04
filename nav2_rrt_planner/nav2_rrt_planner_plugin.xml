@@ -1,0 +1,12 @@
+<library path="nav2_rrt_planner">
+  <class
+    type="nav2_rrt_planner::RRTStarPlanner"
+    base_class_type="nav2_core::GlobalPlanner">
+    <description>
+      Sampling-based RRT* global planner. Grows a collision-free tree over the
+      global costmap with goal-biased sampling and neighbourhood rewiring, and
+      returns the best start-to-goal path. Classical (non-learned) and not part
+      of upstream Nav2. Throws NoValidPathCouldBeFound if no path is found.
+    </description>
+  </class>
+</library>

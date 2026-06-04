@@ -8,6 +8,16 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
 ### Added
 
+- **Classical RRT\* global planner** — `nav2_rrt_planner::RRTStarPlanner`, a
+  sampling-based `nav2_core::GlobalPlanner`. Upstream Nav2 ships only search-based
+  global planners (NavFn, Smac, Theta*); this adds the missing sampling family
+  (goal-biased RRT* with neighbourhood rewiring over the global costmap),
+  deterministic for a fixed `random_seed`. It routes through gaps/around walls
+  the grid neighbourhoods miss. Closed-loop gtests vs a live `Costmap2DROS`
+  (clear map, off-centre gap, solid wall, occupied goal, cancel) + a bringup
+  planner_server example. First non-generative planner in the renamed
+  nav2_experimental_planner repo (planners not in upstream Nav2).
+
 - **Generative GlobalPlanner (Nav2 Mode B)** — `nav2_diffusion_global_planner`,
   a `nav2_core::GlobalPlanner` plugin. A model proposes K candidate start→goal
   paths via a new `nav2_diffusion_core::PathModel` seam (built-in analytic

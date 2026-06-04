@@ -392,6 +392,7 @@ flowchart TD
 | `/nav2_diffusion_core` | ROS 非依存に近い trajectory schema, scoring concept, shared utilities |
 | `/nav2_diffusion_controller` | Nav2 Controller Plugin integration（Mode A）, `TrajectoryModel` seam |
 | `/nav2_diffusion_global_planner` | Nav2 GlobalPlanner Plugin integration（Mode B）, `PathModel` seam（生成パス提案 → costmap 検証 → 最短安全パス選択） |
+| `/nav2_rrt_planner` | classical サンプリングベース GlobalPlanner（RRT\*）。Nav2 に無い planner 群（非AI）の最初の1つ |
 | `/nav2_diffusion_msgs` | trajectory candidates, diagnostics, benchmark result messages |
 | `/nav2_diffusion_safety` | safety gate, collision validation integration |
 | `/nav2_diffusion_bringup` | example launch/config for Nav2 |
