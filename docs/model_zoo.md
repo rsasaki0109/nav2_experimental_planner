@@ -4,7 +4,7 @@
 
 Model Zoo は、検証済みモデルの **model card と manifest** を集約する場所です。大きなバイナリは置かず、release asset / model registry を指します（[deployment.md](deployment.md) §11.4）。
 
-> 8つの生成プランナ構成（flow / diffusion / consistency / transformer × context-only / costmap+goal）を同一の合成回避シナリオで比較したオフライン leaderboard は [model_comparison.md](model_comparison.md) を参照（`tools/benchmark_models.py` で再現可能、CPU・決定論的）。
+> 10の生成プランナ構成（flow / diffusion / consistency / transformer / recurrent × context-only / costmap+goal）を同一の合成回避シナリオで比較したオフライン leaderboard は [model_comparison.md](model_comparison.md) を参照（`tools/benchmark_models.py` で再現可能、CPU・決定論的）。
 
 ## 収録の条件
 

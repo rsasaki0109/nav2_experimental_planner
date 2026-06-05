@@ -15,11 +15,12 @@
 """
 Generative trajectory-model families for the TrajectoryModel ONNX seam.
 
-Implements four goal-conditioned generative local planners that no surveyed work
+Implements five goal-conditioned generative local planners that no surveyed work
 open-sources for ROS 2 Nav2 ground robots: flow matching (single/few-step),
-diffusion (DDIM), a one-step distilled (consistency-style) planner, and a
+diffusion (DDIM), a one-step distilled (consistency-style) planner, a
 transformer set-prediction planner (DETR-style learned query tokens, deterministic
-single forward). Each maps a context vector
+single forward), and a recurrent (GRU) autoregressive rollout planner. Each maps a
+context vector
 [goal_x, goal_y, linear_speed, max_angular] to K candidate SE(2) trajectories and
 exports to the C++ OnnxTrajectoryModel contract
 context [1, 4] -> trajectories [1, K, H, 3]. The costmap-conditioned variants add a
@@ -464,9 +465,90 @@ class CostmapTransformerPlanner(nn.Module):
         return ((self(context, costmap) - target.unsqueeze(1)) ** 2).mean()
 
 
-def _expert_trajectory(gx, gy, side, speed):
+_GRU_HID = 64     # recurrent rollout hidden width
+
+
+def _gru_rollout(cell, head, seeds, cond):
+    """Autoregressively roll out ``NUM_CANDIDATES`` SE(2) trajectories with a GRU.
+
+    Each candidate ``k`` gets a distinct conditioning ``cond + seeds[k]`` that both
+    initialises the hidden state and is fed at every step alongside the previously
+    emitted point, so the K rollouts stay distinct (multimodality from the learned
+    seeds, like the transformer's learned queries). The ``HORIZON``/``K`` python
+    loops unroll into a static graph, so the GRU exports cleanly to ONNX.
     """
-    ~1 s expert that *pursues* the carrot (gx, gy) along a constant-curvature arc
+    b = cond.shape[0]
+    outs = []
+    for k in range(NUM_CANDIDATES):
+        cond_k = cond + seeds[k].unsqueeze(0)           # [B, _GRU_HID]
+        h = cond_k
+        prev = torch.zeros(b, DIM, device=cond.device, dtype=cond.dtype)
+        steps = []
+        for _ in range(HORIZON):
+            h = cell(torch.cat([prev, cond_k], dim=-1), h)
+            prev = head(h)
+            steps.append(prev)
+        outs.append(torch.stack(steps, dim=1).unsqueeze(1))  # [B, 1, H, DIM]
+    return torch.cat(outs, dim=1)                       # [B, K, H, DIM]
+
+
+class RecurrentRolloutPlanner(nn.Module):
+    """Context-only recurrent (GRU) autoregressive rollout planner.
+
+    Instead of proposing a whole trajectory at once (flow / diffusion / consistency
+    / transformer), a GRU emits the SE(2) points one step at a time, feeding the
+    previous point back in — the sequential inductive bias of a world-model-style
+    rollout. The fifth member of the generative family.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.ctx = nn.Linear(4, _GRU_HID)
+        self.seeds = nn.Parameter(torch.randn(NUM_CANDIDATES, _GRU_HID) * 0.1)
+        self.cell = nn.GRUCell(DIM + _GRU_HID, _GRU_HID)
+        self.head = nn.Linear(_GRU_HID, DIM)
+
+    def forward(self, context):
+        return _gru_rollout(self.cell, self.head, self.seeds, self.ctx(context))
+
+    def recon_loss(self, context, target):
+        """Direct regression of the K rolled-out candidates onto the expert."""
+        return ((self(context) - target.unsqueeze(1)) ** 2).mean()
+
+
+class CostmapRecurrentPlanner(nn.Module):
+    """Costmap+goal conditioned recurrent (GRU) autoregressive rollout planner.
+
+    The costmap patch is encoded to an embedding that, with the context, forms the
+    rollout conditioning; a GRU then emits the trajectory one point at a time. The
+    fifth model family on the OnnxTrajectoryModel contract — no surveyed work
+    open-sources a recurrent rollout local planner integrated with Nav2.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.encoder = _CostmapEncoder()
+        self.cond = nn.Linear(4 + COSTMAP_EMBED, _GRU_HID)
+        self.seeds = nn.Parameter(torch.randn(NUM_CANDIDATES, _GRU_HID) * 0.1)
+        self.cell = nn.GRUCell(DIM + _GRU_HID, _GRU_HID)
+        self.head = nn.Linear(_GRU_HID, DIM)
+
+    def _conditioning(self, context, costmap):
+        return self.cond(torch.cat([context, self.encoder(costmap)], dim=-1))
+
+    def forward(self, context, costmap):
+        cond = self._conditioning(context, costmap)
+        return _gru_rollout(self.cell, self.head, self.seeds, cond)
+
+    def recon_loss(self, context, costmap, target):
+        """Direct regression of the K rolled-out candidates onto the expert."""
+        return ((self(context, costmap) - target.unsqueeze(1)) ** 2).mean()
+
+
+def _expert_trajectory(gx, gy, side, speed):
+    """Build a ~1 s pure-pursuit expert arc toward the carrot with an avoidance bow.
+
+    A ~1 s expert that *pursues* the carrot (gx, gy) along a constant-curvature arc
     (pure-pursuit), travelling ``speed`` * horizon metres, plus a half-sine lateral
     bow away from a one-sided obstacle (side > 0 = obstacle on +y -> bow to -y).
 
@@ -560,19 +642,21 @@ _COSTMAP_BUILD = {
     'diffusion': CostmapDiffusionPlanner,
     'consistency': CostmapConsistencyPlanner,
     'transformer': CostmapTransformerPlanner,
+    'recurrent': CostmapRecurrentPlanner,
 }
 _COSTMAP_LOSS = {
     'flow': lambda m, c, cm, t: m.flow_loss(c, cm, t),
     'diffusion': lambda m, c, cm, t: m.diffusion_loss(c, cm, t),
     'consistency': lambda m, c, cm, t: m.distill_loss(c, cm, t),
     'transformer': lambda m, c, cm, t: m.recon_loss(c, cm, t),
+    'recurrent': lambda m, c, cm, t: m.recon_loss(c, cm, t),
 }
 
 
 def train_and_export_costmap(
         path, kind='flow', num_samples=32, epochs=60, lr=0.01,
         steps=None, sample_weight=0.0, device=None):
-    """Train a costmap-conditioned planner (flow/diffusion/consistency/transformer).
+    """Train a costmap planner (flow/diffusion/consistency/transformer/recurrent).
 
     Exports the 2-input ONNX seam (``context [1,4]`` + ``costmap [1,1,S,S]`` ->
     ``[1,K,H,3]``).
@@ -625,11 +709,12 @@ _LOSS = {
     'diffusion': lambda m, c, t: m.diffusion_loss(c, t),
     'consistency': lambda m, c, t: m.distill_loss(c, t),
     'transformer': lambda m, c, t: m.recon_loss(c, t),
+    'recurrent': lambda m, c, t: m.recon_loss(c, t),
 }
 
 
 def build_planner(kind):
-    """Instantiate a planner by family: flow / diffusion / consistency / transformer."""
+    """Instantiate a planner by family: flow/diffusion/consistency/transformer/recurrent."""
     if kind == 'flow':
         return FlowMatchingPlanner()
     if kind == 'diffusion':
@@ -638,6 +723,8 @@ def build_planner(kind):
         return ConsistencyPlanner()
     if kind == 'transformer':
         return TransformerPlanner()
+    if kind == 'recurrent':
+        return RecurrentRolloutPlanner()
     raise ValueError('unknown planner kind: ' + kind)
 
 

@@ -28,7 +28,7 @@ torch = pytest.importorskip('torch')
 pytest.importorskip('onnx')
 
 
-@pytest.mark.parametrize('kind', ['flow', 'diffusion', 'consistency', 'transformer'])
+@pytest.mark.parametrize('kind', ['flow', 'diffusion', 'consistency', 'transformer', 'recurrent'])
 def test_train_export_load_contract(kind, tmp_path):
     """A trained planner exports an ONNX model matching context[1,4]->[1,K,H,3]."""
     from nav2_diffusion_training.generative_planners import train_and_export
@@ -46,7 +46,7 @@ def test_train_export_load_contract(kind, tmp_path):
     assert np.isfinite(out).all()
 
 
-@pytest.mark.parametrize('kind', ['flow', 'diffusion', 'consistency', 'transformer'])
+@pytest.mark.parametrize('kind', ['flow', 'diffusion', 'consistency', 'transformer', 'recurrent'])
 def test_costmap_conditioned_exports_two_input_onnx(kind, tmp_path):
     """Each costmap-conditioned family exports a context+costmap ONNX model."""
     from nav2_diffusion_training.generative_planners import (
@@ -117,3 +117,40 @@ def test_costmap_transformer_reads_costmap_and_reduces_loss():
     with torch.no_grad():
         out = model(ctx, patch)               # [1, K, H, 3]
     assert (out[0, :, :, 1].mean(dim=1) < 0.0).all()   # mean lateral offset is -y
+
+
+def test_costmap_recurrent_reads_costmap_and_rolls_out():
+    """The recurrent (GRU) rollout planner fits the costmap-aware expert.
+
+    A short run reduces the reconstruction loss, the autoregressive rollout drives
+    forward (x increases along the horizon), and every candidate bows away from a
+    one-sided obstacle — i.e. the rollout conditioning reads the costmap rather than
+    emitting a fixed shape.
+    """
+    from nav2_diffusion_training.generative_planners import (
+        CostmapRecurrentPlanner, make_costmap_dataset)
+    torch.manual_seed(0)
+    model = CostmapRecurrentPlanner()
+    # A compact dataset / short run keeps this test light: the autoregressive rollout
+    # unrolls into a deep graph (K x HORIZON GRU cells), so each epoch is far heavier
+    # than the one-shot families. By ~60 epochs the veer is fully resolved; 100 with
+    # lr 0.02 leaves margin against seed / hardware variation.
+    context, costmap, target = make_costmap_dataset(16)
+    opt = torch.optim.Adam(model.parameters(), lr=0.02)
+    first = model.recon_loss(context, costmap, target).item()
+    for _ in range(100):
+        opt.zero_grad()
+        loss = model.recon_loss(context, costmap, target)
+        loss.backward()
+        opt.step()
+    assert loss.item() < first
+
+    model.eval()
+    s = costmap.shape[-1]
+    patch = torch.zeros(1, 1, s, s)
+    patch[:, :, s // 4:s // 2, 0:s // 2] = 1.0   # obstacle on +y -> bow to -y
+    ctx = torch.tensor([[1.0, 0.0, 0.3, 1.0]], dtype=torch.float32)
+    with torch.no_grad():
+        out = model(ctx, patch)               # [1, K, H, 3]
+    assert (out[0, :, :, 1].mean(dim=1) < 0.0).all()   # mean lateral offset is -y
+    assert (out[0, :, -1, 0] > out[0, :, 0, 0]).all()   # rolls forward over horizon

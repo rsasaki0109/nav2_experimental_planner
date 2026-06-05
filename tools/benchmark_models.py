@@ -1,7 +1,7 @@
-"""Offline leaderboard comparing the eight generative planner configurations.
+"""Offline leaderboard comparing the ten generative planner configurations.
 
-Trains each generative planner (flow / diffusion / consistency / transformer,
-both context-only and costmap-conditioned) on the synthetic obstacle-avoidance
+Trains each generative planner (flow / diffusion / consistency / transformer /
+recurrent, both context-only and costmap-conditioned) on the synthetic obstacle-avoidance
 dataset, evaluates the *proposals* each makes on a fixed set of obstacle
 scenarios, and writes a safety-first leaderboard to ``docs/model_comparison.md``.
 
@@ -90,34 +90,51 @@ def to_candidates(out):
             for k in range(arr.shape[0])]
 
 
+def _train_device(kind):
+    """Pick the training device for a family.
+
+    Only the recurrent family trains on the GPU: its autoregressive rollout unrolls
+    into a deep graph (K x HORIZON GRU cells), so 1000 CPU epochs are impractical. The
+    flow / diffusion families are *not* GPU-safe internally (they sample noise on the
+    default CPU device), so they — and the cheap one-shot transformer / consistency —
+    stay on the CPU, keeping their leaderboard rows bit-identical to prior runs.
+    Inference (aggregate) always runs on CPU after the model is moved back.
+    """
+    if kind == 'recurrent' and torch.cuda.is_available():
+        return torch.device('cuda')
+    return torch.device('cpu')
+
+
 def train_context(kind):
     """Context-only model: trained on the same data but blind to the costmap."""
     torch.manual_seed(0)
-    model = build_planner(kind)
+    dev = _train_device(kind)
+    model = build_planner(kind).to(dev)
     context, _costmap, target = make_bench_dataset(64)
+    context, target = context.to(dev), target.to(dev)
     opt = torch.optim.Adam(model.parameters(), lr=0.01)
     for _ in range(EPOCHS):
         opt.zero_grad()
         loss = _LOSS[kind](model, context, target)
         loss.backward()
         opt.step()
-    model.eval()
-    return model
+    return model.eval().to('cpu')
 
 
 def train_costmap(kind):
     """Costmap-conditioned model: sees the egocentric obstacle patch."""
     torch.manual_seed(0)
-    model = _COSTMAP_BUILD[kind]()
+    dev = _train_device(kind)
+    model = _COSTMAP_BUILD[kind]().to(dev)
     context, costmap, target = make_bench_dataset(64)
+    context, costmap, target = context.to(dev), costmap.to(dev), target.to(dev)
     opt = torch.optim.Adam(model.parameters(), lr=0.01)
     for _ in range(EPOCHS):
         opt.zero_grad()
         loss = _COSTMAP_LOSS[kind](model, context, costmap, target)
         loss.backward()
         opt.step()
-    model.eval()
-    return model
+    return model.eval().to('cpu')
 
 
 # name, family, conditioning, inference steps, builder, costmap-conditioned?
@@ -126,10 +143,12 @@ MODELS = [
     ('diffusion', 'diffusion (DDIM)', 'context', 4, train_context, False),
     ('consistency', 'consistency (1-step)', 'context', 1, train_context, False),
     ('transformer', 'transformer (set-pred)', 'context', 1, train_context, False),
+    ('recurrent', 'recurrent (GRU rollout)', 'context', 10, train_context, False),
     ('costmap-flow', 'flow matching', 'costmap+goal', 2, train_costmap, True),
     ('costmap-diffusion', 'diffusion (DDIM)', 'costmap+goal', 4, train_costmap, True),
     ('costmap-consistency', 'consistency (1-step)', 'costmap+goal', 1, train_costmap, True),
     ('costmap-transformer', 'transformer (set-pred)', 'costmap+goal', 1, train_costmap, True),
+    ('costmap-recurrent', 'recurrent (GRU rollout)', 'costmap+goal', 10, train_costmap, True),
 ]
 
 
@@ -174,8 +193,8 @@ def write_report(ranked):
         '> 自動生成: `python3 tools/benchmark_models.py`。'
         '関連: [benchmarking.md](benchmarking.md)、[model_zoo.md](model_zoo.md)。',
         '',
-        '8つの生成プランナ構成（flow / diffusion / consistency / transformer × '
-        'context / costmap+goal）を**同一の合成回避シナリオ**で評価し、各モデルが'
+        '10の生成プランナ構成（flow / diffusion / consistency / transformer / '
+        'recurrent × context / costmap+goal）を**同一の合成回避シナリオ**で評価し、各モデルが'
         '提案する K 候補軌道の品質を比較する。シナリオは前方を塞ぐ障害物と片側 gap'
         '（gap-right / gap-left）＋ clear。直進すると衝突し、gap 側へ回避した候補のみ'
         'クリアできる。これは CPU・決定論的な**提案品質**の比較であり、シミュレータ'
@@ -211,8 +230,9 @@ def write_report(ranked):
         'propose/dispose/select 構成では、衝突候補が混じっても安全層が落とすため、'
         '「最低1つ安全な高 progress 候補を出せるか」が実運用上の安全成否。',
         '- **Steps**: 推論ステップ数（レイテンシの代理指標）。'
-        'consistency=1, flow=1〜2, diffusion=4。consistency が1ステップで'
-        'success を取れれば edge-GPU 向きに有利。',
+        'consistency=1, transformer=1, flow=1〜2, diffusion=4, recurrent=10'
+        '（自己回帰ロールアウトは horizon 分の逐次ステップ）。1ステップで'
+        'success を取れる consistency / transformer が edge-GPU 向きに有利。',
         '- **CollRate**: 全 K 候補のうち衝突した割合（参考値）。'
         '多峰性のため高くても success が満たされれば許容される。',
         '- 合成データ・CPU 評価であり、実機/実 sim の数値ではない'
@@ -223,10 +243,12 @@ def write_report(ranked):
         '',
         '- 上位は **costmap 条件付き**モデルが占める。costmap を読めるモデルだけが'
         'gap 側を選んで安全候補を出せる＝条件付けの価値が success に直結する。',
-        '- **costmap-consistency**（1ステップ蒸留）が衝突0・success 1.00 で総合首位、'
-        '**costmap-transformer**（DETR 風 set-prediction）が衝突0・success 1.00・'
-        '1ステップで僅差の2位。新規の transformer ファミリが反復サンプリング系と'
-        '同等の安全候補品質を1フォワードで出せることを示す（context-only でも'
+        '- **costmap-recurrent**（GRU 自己回帰ロールアウト）が衝突0・success 1.00 で'
+        '総合首位だが、逐次生成で **10 ステップ**とレイテンシは最大。'
+        '**costmap-consistency**（1ステップ蒸留）と **costmap-transformer**（DETR 風 '
+        'set-prediction）は衝突0・success 1.00 を**1フォワード**で達成し、edge-GPU '
+        'では依然有利。新規の recurrent / transformer ファミリが反復サンプリング系と'
+        '同等以上の安全候補品質を出せることを示す（context-only でも recurrent / '
         'transformer が context 勢の最上位）。',
         '- これは**固定 seed の単一試行・toy モデル**による例示であり、絶対順位は'
         'seed / epoch / 推論ステップ数に依存する。手法選定の確定指標ではなく、'

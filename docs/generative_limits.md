@@ -22,6 +22,7 @@
 - **costmap 条件付き側選択**: 片側に障害物がある egocentric / goal-aligned patch を入力すると、K 個の提案すべてが空き側へ寄る。解析的 placeholder（`FanPathModel` / `FanRolloutModel`、地図を見ず対称 bow）には出せない、本物の学習挙動。`nav2_diffusion_onnx` の end-to-end gtest（`CuratedZooModelVeersAwayFromObstacle`）で出荷バイナリを直接検証。
 - **clear のバイアス除去**: 障害物なしでは中央（直進）。学習データに mirror ペア + clear サンプルを入れて左右バイアスを消した。
 - **Mode A の open 完走**: expert を **pure-pursuit 弧（carrot へ向けて曲がる）**に再設計し、carrot 方位を多様化したことで、閉ループの横ズレを能動補正でき、open シナリオで goal 到達（`controller_comparison.md` の *Mode A, learned* 行）。
+- **生成ファミリの拡充（同一封筒の peer）**: Mode A の seam 上に flow / diffusion / consistency に加え **transformer**（DETR 風 set-prediction）と **recurrent**（GRU 自己回帰ロールアウト）の計5系統を実装・出荷した（`diffusion_local_costmap_transformer_v0` / `diffusion_local_costmap_recurrent_v0`、C++ curated-zoo テスト + `controller_benchmark` 行付き）。いずれも costmap 側選択・clear バイアス除去・前進を満たす本物の学習挙動だが、**競合範囲（competence envelope）は flow と同じ**で、下記の天井（Mode A 障害物スレッディング・Mode B 検証付き gap）を変えるものではない。意義は「同じ契約で帰納バイアスの異なる proposer を比較できる」点であり、天井突破は依然データ/容量/hybrid の問題。
 
 ## 何が天井か（実証）
 

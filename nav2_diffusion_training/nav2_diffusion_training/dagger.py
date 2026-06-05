@@ -30,16 +30,15 @@ lookahead, and dt. PyTorch is a heavy optional dependency, imported here.
 
 import math
 
-import numpy as np
-import onnx
-import torch
-
 from nav2_diffusion_training.generative_planners import (
     _expert_trajectory,
     COSTMAP_SIZE,
     CostmapFlowPlanner,
     make_costmap_dataset,
 )
+import numpy as np
+import onnx
+import torch
 
 RES = 0.05                  # costmap resolution [m]
 GRID = 120                  # 6 x 6 m sim

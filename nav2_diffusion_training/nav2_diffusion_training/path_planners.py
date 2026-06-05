@@ -380,8 +380,7 @@ def make_costmap_path_dataset(num_samples):
 
 
 def _gap_patch(slot_y, x_lo, x_hi, slot_hw):
-    """
-    A wall spanning the patch width at forward band [x_lo, x_hi] with one slot.
+    """Build a wall spanning the patch width at forward band [x_lo, x_hi] with one slot.
 
     The wall fills every column except a gap of half-width ``slot_hw`` centred at
     lateral ``slot_y`` (metres). Routing through the slot — not picking a free side

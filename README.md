@@ -120,7 +120,7 @@ flowchart LR
 
 <p align="center"><em>出荷モデル <code>CostmapFlowPlanner</code>（flow matching + egocentric costmap エンコーダ）そのものの出力。障害物（赤）が左右に動くと、生成された候補軌道が反対側へ veer する＝ costmap に条件付いた回避を学習している。再現は <a href="tools/costmap_demo.py">tools/costmap_demo.py</a>。</em></p>
 
-調査（papers＋既存 OSS の突き合わせ）の結果、Nav2 地上ロボット向けの **flow / diffusion / consistency / transformer の local planner で公開実装が無い** ことを確認し、4系統＋costmap 条件付けを OSS-gap 実装として収録している（[docs/model_zoo.md](docs/model_zoo.md)）。transformer は DETR 風の set-prediction（K 個の learned query token が costmap+context トークンに cross-attention して各々軌道を一度にデコード、noise sampling なしの決定論的 single-forward）で、他3系統と挙動が明確に異なる4つ目のファミリ。**8 構成を同一シナリオで比較したオフライン leaderboard で costmap-transformer は衝突0・success 1.00・1ステップで2位**（首位は costmap-consistency）— [docs/model_comparison.md](docs/model_comparison.md)（`tools/benchmark_models.py` で再現可能）。
+調査（papers＋既存 OSS の突き合わせ）の結果、Nav2 地上ロボット向けの **flow / diffusion / consistency / transformer / recurrent の local planner で公開実装が無い** ことを確認し、5系統＋costmap 条件付けを OSS-gap 実装として収録している（[docs/model_zoo.md](docs/model_zoo.md)）。transformer は DETR 風の set-prediction（K 個の learned query token が costmap+context トークンに cross-attention して各々軌道を一度にデコード、noise sampling なしの決定論的 single-forward）、recurrent は GRU の自己回帰ロールアウト（costmap+context を条件に1ステップずつ軌道を生成し前ステップを入力に戻す world-model 風の逐次バイアス）で、いずれも他系統と挙動が明確に異なる。**10 構成を同一シナリオで比較したオフライン leaderboard** で costmap 条件付きモデルを横断比較— [docs/model_comparison.md](docs/model_comparison.md)（`tools/benchmark_models.py` で再現可能）。
 
 ## 生成型 GlobalPlanner（Mode B）
 

@@ -35,6 +35,10 @@
 #ifndef ONNX_ZOO_COSTMAP_TRANSFORMER_MODEL
 #define ONNX_ZOO_COSTMAP_TRANSFORMER_MODEL ""
 #endif
+// The recurrent (GRU rollout) Mode A sibling shipped in model_zoo/ (same contract).
+#ifndef ONNX_ZOO_COSTMAP_RECURRENT_MODEL
+#define ONNX_ZOO_COSTMAP_RECURRENT_MODEL ""
+#endif
 
 using nav2_diffusion_onnx::OnnxTrajectoryModel;
 
@@ -173,6 +177,17 @@ TEST(OnnxTrajectoryModelTest, CuratedZooTransformerVeersAwayFromObstacle)
   const std::string zoo = ONNX_ZOO_COSTMAP_TRANSFORMER_MODEL;
   if (zoo.empty()) {
     GTEST_SKIP() << "model_zoo transformer trajectory model path not provided";
+  }
+  expectVeersAwayFromObstacle(zoo);
+}
+
+// The recurrent Mode A sibling (diffusion_local_costmap_recurrent_v0): same ONNX
+// contract, same headline behaviour. Guards the third shipped binary.
+TEST(OnnxTrajectoryModelTest, CuratedZooRecurrentVeersAwayFromObstacle)
+{
+  const std::string zoo = ONNX_ZOO_COSTMAP_RECURRENT_MODEL;
+  if (zoo.empty()) {
+    GTEST_SKIP() << "model_zoo recurrent trajectory model path not provided";
   }
   expectVeersAwayFromObstacle(zoo);
 }

@@ -7,6 +7,35 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 ## [Unreleased]
 
 ### Added
+- **Recurrent (GRU) rollout trajectory model family** (`RecurrentRolloutPlanner` /
+  `CostmapRecurrentPlanner` in `nav2_diffusion_training.generative_planners`) — the
+  **fifth** generative family on the `OnnxTrajectoryModel` contract, alongside flow /
+  diffusion / consistency / transformer. Unlike the one-shot / denoising families it
+  generates the trajectory **autoregressively**: a CNN encodes the costmap patch to a
+  conditioning vector and a GRU emits the SE(2) points one at a time, feeding the
+  previous point back in (the world-model-style sequential inductive bias). K=3
+  learned seed vectors make the candidates distinct without sampling noise; the
+  `HORIZON`/`K` loops unroll into a static graph so the GRU exports cleanly to ONNX
+  (no custom ops). Loads into the existing C++ backend with no changes (same
+  `context [1,4]` + `costmap [1,1,S,S]` → `[1,K,H,3]` contract). No surveyed work
+  open-sources a recurrent-rollout local trajectory planner integrated with Nav2.
+  Tests cover the ONNX contract and verify the costmap-conditioned model veers away
+  from a one-sided obstacle and rolls forward over the horizon.
+- **Recurrent Mode A model shipped in the loop** — `model_zoo/diffusion_local_recurrent/`
+  (`diffusion_local_costmap_recurrent_v0`, ≈592 KB, GPU-trained, CPU-exported). The
+  recurrent family is now a real learned model running through the C++ inference path:
+  a curated-zoo C++ test (`CuratedZooRecurrentVeersAwayFromObstacle`) guards the
+  shipped binary, a `Diffusion (Mode A, recurrent)` row is added to
+  `controller_benchmark`, and the family is added to the offline leaderboard
+  (`tools/benchmark_models.py`, now ten configurations) and regenerated into
+  `docs/model_comparison.md`, where `costmap-recurrent` tops the safety-weighted
+  score (success 1.00, zero collisions) — though at 10 sequential rollout steps it
+  is the highest-latency family, so the 1-step consistency / transformer remain the
+  edge-GPU picks. Exported behaviour: obstacle on +y → all candidates
+  veer −y (≈−0.13 m), symmetric on −y, clear → straight, monotone forward rollout to
+  ~0.30 m. Honest scope: a fifth same-contract generative proposer (sequential bias),
+  not a new gap/threading capability — the synthetic-data / capacity ceiling and the
+  hybrid completeness guarantee are unchanged.
 - **Transformer Mode B path planner + off-centre-gap finding (representational, not a
   benchmark win).** `CostmapPathTransformerPlanner` + `make_costmap_path_gap_dataset`
   in `path_planners.py`, and `model_zoo/diffusion_global_transformer/`

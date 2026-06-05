@@ -60,6 +60,11 @@ install(
   DESTINATION share/${PROJECT_NAME}/models
   RENAME diffusion_local_costmap_transformer.onnx
 )
+install(
+  FILES ${CMAKE_CURRENT_SOURCE_DIR}/../model_zoo/diffusion_local_recurrent/costmap_recurrent.onnx
+  DESTINATION share/${PROJECT_NAME}/models
+  RENAME diffusion_local_costmap_recurrent.onnx
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
