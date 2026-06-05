@@ -10,6 +10,14 @@ jobs:
   build-and-test:
     name: build & test (${{ matrix.ros_distro }})
     runs-on: ubuntu-24.04
+    # Run inside the official ROS image instead of building the ROS environment on
+    # the host with setup-ros. The host setup intermittently failed to propagate
+    # the ROS environment into colcon's per-package build subprocess, producing
+    # non-deterministic "No module named ament_package" / "No rosidl_typesupport_c
+    # found" errors on a different package each run. The prebuilt image ships a
+    # stable, fully-sourced ROS, so those races disappear.
+    container:
+      image: ros:${{ matrix.ros_distro }}-ros-base
     strategy:
       fail-fast: false
       matrix:
@@ -18,10 +26,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup ROS 2
-        uses: ros-tooling/setup-ros@v0.7
-        with:
-          required-ros-distributions: ${{ matrix.ros_distro }}
+      # The container runs as root; mark the checkout dir safe so the git
+      # operations action-ros-ci performs do not trip "dubious ownership".
+      - name: Mark workspace safe for git
+        run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
 
       # Builds the C++/msgs packages with colcon and runs colcon test, which
       # includes the ament lints (copyright, cpplint, uncrustify, lint_cmake,
@@ -30,17 +38,6 @@ jobs:
         uses: ros-tooling/action-ros-ci@v0.4
         with:
           target-ros2-distro: ${{ matrix.ros_distro }}
-          # Build packages sequentially. The parallel executor intermittently
-          # configured a package before the ROS underlay environment was fully
-          # in place, causing non-deterministic "No module named ament_package"
-          # / "No rosidl_typesupport_c found" errors on a different package each
-          # run. Sequential build (and lower peak memory) makes CI deterministic.
-          colcon-defaults: |
-            {
-              "build": {
-                "executor": "sequential"
-              }
-            }
           package-name: |
             nav2_diffusion_msgs
             nav2_diffusion_core
