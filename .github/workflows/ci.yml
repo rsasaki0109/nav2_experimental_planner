@@ -30,6 +30,17 @@ jobs:
         uses: ros-tooling/action-ros-ci@v0.4
         with:
           target-ros2-distro: ${{ matrix.ros_distro }}
+          # Build packages sequentially. The parallel executor intermittently
+          # configured a package before the ROS underlay environment was fully
+          # in place, causing non-deterministic "No module named ament_package"
+          # / "No rosidl_typesupport_c found" errors on a different package each
+          # run. Sequential build (and lower peak memory) makes CI deterministic.
+          colcon-defaults: |
+            {
+              "build": {
+                "executor": "sequential"
+              }
+            }
           package-name: |
             nav2_diffusion_msgs
             nav2_diffusion_core
