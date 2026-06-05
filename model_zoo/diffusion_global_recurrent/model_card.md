@@ -95,7 +95,7 @@ Research placeholder → checked **behaviourally** at the proposal level:
 
 ## Reproducibility
 
-- **Command:** `PYTHONPATH=../../nav2_diffusion_training python3 export.py`
+- **Command:** `PYTHONPATH=../../generative/nav2_diffusion_training python3 export.py`
   (CUDA when available; `CUDA_VISIBLE_DEVICES= ` forces a deterministic CPU build)
 - **Seed:** 0 · **Toolchain:** torch 2.10.0+cu128, onnx 1.21.0; trained on CUDA,
   exported on CPU

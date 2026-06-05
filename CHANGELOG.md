@@ -6,6 +6,23 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
 ## [Unreleased]
 
+### Changed
+- **Grouped the 21 ROS packages into role subdirectories** — `generative/`
+  (the generative framework, `nav2_diffusion_*`), `classical_planners/`
+  (RRT\* / RRT-Connect / PRM / D\* Lite / JPS / Lazy Theta\* / ARA\* / visibility
+  graph), `reactive_controllers/` (VFH+ / ND), and `benchmarks/`
+  (`nav2_planner_benchmarks` + `nav2_diffusion_benchmarks`). **Package names,
+  dependencies, and imports are unchanged** — colcon discovers packages
+  recursively, so the grouping is purely for readability and does not affect the
+  build. Updated the references that *are* path-relative: the `../model_zoo` →
+  `../../model_zoo` model paths in `nav2_planner_benchmarks` and
+  `nav2_diffusion_onnx` CMake (the only build-breaking refs), README / docs
+  links, the `model_zoo` reproduce commands, the architecture §12 package table,
+  and added `nav2_diffusion_sim` to CI. Verified by a clean full rebuild (21/21)
+  plus the onnx gtests (load models from the new path), `nav2_diffusion_sim`
+  (30/30), `nav2_diffusion_bringup` (34/34), and an end-to-end `planner_benchmark`
+  run whose results are identical to before the move.
+
 ### Added
 - **Closed-loop Gazebo obstacle courses (`nav2_diffusion_sim`) mirroring the
   off-line `planner_benchmark` scenarios.** A single-source generator

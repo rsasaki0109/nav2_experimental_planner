@@ -74,7 +74,7 @@ checksum:
   artifact: costmap_flow.onnx
 
 reproduce:
-  command: "PYTHONPATH=../../nav2_diffusion_training CUDA_VISIBLE_DEVICES= python3 export.py"
+  command: "PYTHONPATH=../../generative/nav2_diffusion_training CUDA_VISIBLE_DEVICES= python3 export.py"
   toolchain: "torch 2.10.0+cu128, onnx 1.21.0 (export); CPU"
   hyperparameters: "240 samples, 700 epochs, lr 0.01, 4 flow steps"
   seed: 0

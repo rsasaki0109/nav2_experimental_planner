@@ -86,7 +86,7 @@ checksum:
   artifact: costmap_recurrent.onnx
 
 reproduce:
-  command: "PYTHONPATH=../../nav2_diffusion_training python3 export.py  # GPU if available; CUDA_VISIBLE_DEVICES= forces CPU"
+  command: "PYTHONPATH=../../generative/nav2_diffusion_training python3 export.py  # GPU if available; CUDA_VISIBLE_DEVICES= forces CPU"
   toolchain: "torch 2.10.0+cu128, onnx 1.21.0; trained on CUDA, exported on CPU"
   hyperparameters: "recurrent, 240 samples, 1500 epochs, lr 0.01 (recon_loss = direct MSE; no sample_weight / flow steps needed)"
   seed: 0

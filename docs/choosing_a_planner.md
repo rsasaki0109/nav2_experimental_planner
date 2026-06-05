@@ -22,14 +22,14 @@
 
 | 状況 | 推奨 | 理由 |
 |---|---|---|
-| 標準的な静的地図・最短重視 | **Nav2 公式 NavFn / Smac**（or [JPS](../nav2_jps_planner)） | まず公式で十分。JPS は 8 連結 A\* と同じ最適経路を展開数大幅減で返す |
-| 階段状を嫌い直線的な経路が欲しい | **[Lazy Theta\*](../nav2_lazy_theta_star_planner)** | any-angle。障害物の角でだけ曲がる |
-| 障害物が少なく連続空間で厳密最短 | **[visibility graph](../nav2_visibility_graph_planner)** | コーナー間直線で幾何最短。コーナー数が多い地図は O(V²) に注意 |
-| コストマップが少しずつ変わる・高頻度再計画 | **[D\* Lite](../nav2_dstar_lite_planner)** | 変化セルだけ修復する incremental。warm 再計画が安い |
-| 時間予算が厳しく「まず妥当解→改善」 | **[ARA\*](../nav2_ara_star_planner)** | anytime。ε を下げて bounded-suboptimal を漸進改善 |
-| 非格子的な通路・広い自由空間・将来の高次元化 | **[RRT\* / RRT-Connect](../nav2_rrt_planner)** | sampling。RRT-Connect は狭路を高速に貫通（feasible）、RRT\* は漸近最適 |
-| 同一地図で多数の異なるクエリ | **[PRM](../nav2_prm_planner)** | ロードマップを再利用できる（本実装は plan ごと再構築だが将来 multi-query 向き） |
-| 学習した経路分布で multimodal 提案＋安全層検証 | **[生成型 Mode B](../nav2_diffusion_global_planner)** | モデルが K 候補を提案、costmap が検証、最短安全パス選択。解析的 fan か、[model_zoo](../model_zoo/diffusion_global) の costmap 条件付き **学習済み** flow モデル（`OnnxPathModel`）を選べる |
+| 標準的な静的地図・最短重視 | **Nav2 公式 NavFn / Smac**（or [JPS](../classical_planners/nav2_jps_planner)） | まず公式で十分。JPS は 8 連結 A\* と同じ最適経路を展開数大幅減で返す |
+| 階段状を嫌い直線的な経路が欲しい | **[Lazy Theta\*](../classical_planners/nav2_lazy_theta_star_planner)** | any-angle。障害物の角でだけ曲がる |
+| 障害物が少なく連続空間で厳密最短 | **[visibility graph](../classical_planners/nav2_visibility_graph_planner)** | コーナー間直線で幾何最短。コーナー数が多い地図は O(V²) に注意 |
+| コストマップが少しずつ変わる・高頻度再計画 | **[D\* Lite](../classical_planners/nav2_dstar_lite_planner)** | 変化セルだけ修復する incremental。warm 再計画が安い |
+| 時間予算が厳しく「まず妥当解→改善」 | **[ARA\*](../classical_planners/nav2_ara_star_planner)** | anytime。ε を下げて bounded-suboptimal を漸進改善 |
+| 非格子的な通路・広い自由空間・将来の高次元化 | **[RRT\* / RRT-Connect](../classical_planners/nav2_rrt_planner)** | sampling。RRT-Connect は狭路を高速に貫通（feasible）、RRT\* は漸近最適 |
+| 同一地図で多数の異なるクエリ | **[PRM](../classical_planners/nav2_prm_planner)** | ロードマップを再利用できる（本実装は plan ごと再構築だが将来 multi-query 向き） |
+| 学習した経路分布で multimodal 提案＋安全層検証 | **[生成型 Mode B](../generative/nav2_diffusion_global_planner)** | モデルが K 候補を提案、costmap が検証、最短安全パス選択。解析的 fan か、[model_zoo](../model_zoo/diffusion_global) の costmap 条件付き **学習済み** flow モデル（`OnnxPathModel`）を選べる |
 | 生成の高速提案 ＋ 難所での完全性も両立 | **生成型 Mode B + `fallback_planner_plugin`（hybrid）** | learned 提案 → 無効なら classical search に委譲。簡単な地図は generative、off-centre gap 等は探索系が解く（[generative_limits.md](generative_limits.md)） |
 
 ### 決定フロー
@@ -57,10 +57,10 @@ flowchart TD
 
 | 状況 | 推奨 | 理由 |
 |---|---|---|
-| 軌道ロールアウト無しの安価な反応回避 | **[VFH+](../nav2_vfh_controller)** | 極座標ヒストグラムの free valley をコストで選ぶ。雑然空間で堅牢 |
-| 狭い回廊での中央寄せ・すり抜けと滑らかな操舵 | **[ND](../nav2_nd_controller)** | gap 選択＋安全偏向。閉ループ比較では VFH+ より滑らか |
-| 正面障害物に広いクリアランスで回避 | **[VFH+](../nav2_vfh_controller)** | 比較で frontal の最小クリアランスが大きい傾向 |
-| 学習モデルで multimodal 軌道提案＋決定論安全層 | **[生成型 Mode A](../nav2_diffusion_controller)** | 提案→安全ゲート→scoring→cmd_vel、no-safe なら fallback。解析的 fan か、[model_zoo](../model_zoo/diffusion_local) の costmap 条件付き **学習済み** 軌道モデル(`OnnxTrajectoryModel`)を選べる |
+| 軌道ロールアウト無しの安価な反応回避 | **[VFH+](../reactive_controllers/nav2_vfh_controller)** | 極座標ヒストグラムの free valley をコストで選ぶ。雑然空間で堅牢 |
+| 狭い回廊での中央寄せ・すり抜けと滑らかな操舵 | **[ND](../reactive_controllers/nav2_nd_controller)** | gap 選択＋安全偏向。閉ループ比較では VFH+ より滑らか |
+| 正面障害物に広いクリアランスで回避 | **[VFH+](../reactive_controllers/nav2_vfh_controller)** | 比較で frontal の最小クリアランスが大きい傾向 |
+| 学習モデルで multimodal 軌道提案＋決定論安全層 | **[生成型 Mode A](../generative/nav2_diffusion_controller)** | 提案→安全ゲート→scoring→cmd_vel、no-safe なら fallback。解析的 fan か、[model_zoo](../model_zoo/diffusion_local) の costmap 条件付き **学習済み** 軌道モデル(`OnnxTrajectoryModel`)を選べる |
 | 生成の提案 ＋ 障害物での回避も両立 | **生成型 Mode A + `fallback_controller_plugin`(hybrid)** | learned → 安全候補が無ければ classical reactive(VFH+/ND)へ委譲。easy は learned、障害物は reactive が回避し全シナリオ到達([generative_limits.md](generative_limits.md)) |
 
 VFH+ と ND は実測で「berth（VFH+ が広め）」対「smoothness（ND が滑らか）」のトレードオフで、**一方的な優劣は無い**（[controller_comparison.md](controller_comparison.md)）。
@@ -82,7 +82,7 @@ flowchart TD
 
 - 全 planner は**決定論的**（sampling 系は `random_seed` 固定で再現可能）で、稼働中 `Costmap2DROS` に対する閉ループ統合テストを持つ（Gazebo/GPU 不要）。
 - sampling / 二値グリッド系（JPS / Lazy Theta\* / visibility graph）は costmap を**二値（free/blocked）**として扱い、inflation の段階コストを無視する。ソフトなコスト整形が要るなら **D\* Lite**（`cost_weight`）や **ARA\***（`cost_weight`）、または公式 NavFn/Smac を使う。
-- どの planner / controller も既存の Nav2 構成で **plugin を差し替えるだけ**で試せる（各パッケージ README と [../nav2_diffusion_bringup](../nav2_diffusion_bringup) の例 yaml）。
+- どの planner / controller も既存の Nav2 構成で **plugin を差し替えるだけ**で試せる（各パッケージ README と [../nav2_diffusion_bringup](../generative/nav2_diffusion_bringup) の例 yaml）。
 
 生成型（Mode A/B の学習済みモデル）が**どこで効き、どこで classical が勝つか**の実証は [generative_limits.md](generative_limits.md) を参照（side-selection・open 到達は効く／gap-routing・obstacle-threading は classical 領域）。
 

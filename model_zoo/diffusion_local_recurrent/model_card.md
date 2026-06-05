@@ -107,7 +107,7 @@ deployment benchmark:
 
 ## Reproducibility
 
-- **Command:** `PYTHONPATH=../../nav2_diffusion_training python3 export.py`
+- **Command:** `PYTHONPATH=../../generative/nav2_diffusion_training python3 export.py`
   (uses CUDA when available; `CUDA_VISIBLE_DEVICES= ` forces a deterministic CPU build)
 - **Seed:** 0 (`torch.manual_seed(0)` inside the training function)
 - **Toolchain:** torch 2.10.0+cu128, onnx 1.21.0; trained on CUDA, exported on CPU

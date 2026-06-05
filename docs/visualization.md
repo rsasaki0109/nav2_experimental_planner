@@ -1,6 +1,6 @@
 # Visualization
 
-> 関連: [architecture.md](architecture.md)、[getting_started.md](getting_started.md)、[../nav2_diffusion_rviz_plugins](../nav2_diffusion_rviz_plugins)
+> 関連: [architecture.md](architecture.md)、[getting_started.md](getting_started.md)、[../nav2_diffusion_rviz_plugins](../generative/nav2_diffusion_rviz_plugins)
 
 生成モデルの提案・安全層の判定・実行コマンドを可視化するための RViz / Foxglove セットアップ。
 
@@ -38,7 +38,7 @@ ros2 launch nav2_diffusion_bringup foxglove.launch.py use_bridge:=false
 | `safety_topic` | `/controller_server/FollowPath/safety_state` | 変換元の安全状態トピック |
 
 Foxglove Studio で `ws://<host>:8765` に接続し、**Layout → Import from file** で
-[../nav2_diffusion_bringup/foxglove/nav2_diffusion_layout.json](../nav2_diffusion_bringup/foxglove/nav2_diffusion_layout.json)
+[../nav2_diffusion_bringup/foxglove/nav2_diffusion_layout.json](../generative/nav2_diffusion_bringup/foxglove/nav2_diffusion_layout.json)
 を読み込むと、以下のパネルが揃う:
 
 - **3D**: costmap（local/global）、`/plan`、`/candidate_markers`（候補軌道）、`/safety_state_marker`、`/scan`
@@ -50,4 +50,4 @@ Foxglove Studio で `ws://<host>:8765` に接続し、**Layout → Import from f
 
 ## RViz
 
-RViz では標準の **MarkerArray** ディスプレイで `/candidate_markers` を、**Marker** で `/safety_state_marker` を追加すれば同じ可視化が得られる（[../nav2_diffusion_rviz_plugins/README.md](../nav2_diffusion_rviz_plugins/README.md)）。`candidate_markers` ノードは上記 Foxglove launch でも起動するので、RViz と併用も可能。
+RViz では標準の **MarkerArray** ディスプレイで `/candidate_markers` を、**Marker** で `/safety_state_marker` を追加すれば同じ可視化が得られる（[../nav2_diffusion_rviz_plugins/README.md](../generative/nav2_diffusion_rviz_plugins/README.md)）。`candidate_markers` ノードは上記 Foxglove launch でも起動するので、RViz と併用も可能。

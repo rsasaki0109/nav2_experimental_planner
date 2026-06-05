@@ -386,32 +386,42 @@ flowchart TD
 
 ### 12.1 Top-Level Structure
 
+ROS パッケージは役割別のサブディレクトリにまとめている（`generative/` /
+`classical_planners/` / `reactive_controllers/` / `benchmarks/`）。colcon は再帰探索
+するため、**パッケージ名・依存・import はディレクトリ位置に依存しない**（グルーピングは
+可読性のためのもので、ビルドには無関係）。
+
 | Path | 役割 |
 |---|---|
 | `/docs` | architecture, safety, benchmark, deployment, model cards |
-| `/nav2_diffusion_core` | ROS 非依存に近い trajectory schema, scoring concept, shared utilities |
-| `/nav2_diffusion_controller` | Nav2 Controller Plugin integration（Mode A）, `TrajectoryModel` seam |
-| `/nav2_diffusion_global_planner` | Nav2 GlobalPlanner Plugin integration（Mode B）, `PathModel` seam（生成パス提案 → costmap 検証 → 最短安全パス選択） |
-| `/nav2_rrt_planner` | classical サンプリングベース GlobalPlanner（RRT\* + RRT-Connect）。Nav2 に無い planner 群（非AI） |
-| `/nav2_prm_planner` | classical サンプリングベース GlobalPlanner（PRM ロードマップ + Dijkstra）。Nav2 に無い planner 群（非AI） |
-| `/nav2_dstar_lite_planner` | classical インクリメンタル探索 GlobalPlanner（D\* Lite、変化セルのみ修復）。Nav2 に無い planner 群（非AI） |
-| `/nav2_jps_planner` | classical グリッド探索 GlobalPlanner（JPS、対称性枝刈りで A\* 高速化）。Nav2 に無い planner 群（非AI） |
-| `/nav2_lazy_theta_star_planner` | classical any-angle GlobalPlanner（Lazy Theta\*、LOS 遅延）。upstream の eager Theta\* と別変種。Nav2 に無い planner 群（非AI） |
-| `/nav2_ara_star_planner` | classical anytime GlobalPlanner（ARA\*、ε を下げ bounded-suboptimal 解を漸進改善）。Nav2 に無い planner 群（非AI） |
-| `/nav2_visibility_graph_planner` | classical 幾何 GlobalPlanner（visibility graph、障害物凸コーナー + A\*）。Nav2 に無い planner 群（非AI） |
-| `/nav2_vfh_controller` | classical reactive Controller（VFH+、極座標ヒストグラムで局所回避、Mode A）。Nav2 に無い planner 群（非AI） |
-| `/nav2_nd_controller` | classical reactive Controller（ND、gap 選択 + 安全偏向で局所回避、Mode A）。Nav2 に無い planner 群（非AI） |
-| `/nav2_planner_benchmarks` | classical GlobalPlanner 8種の同一シナリオ比較（経路長/pose/時間 → docs/planner_comparison.md） |
-| `/nav2_diffusion_msgs` | trajectory candidates, diagnostics, benchmark result messages |
-| `/nav2_diffusion_safety` | safety gate, collision validation integration |
-| `/nav2_diffusion_bringup` | example launch/config for Nav2 |
-| `/nav2_diffusion_rviz_plugins` | candidate trajectory visualization |
+| **`generative/`** | **生成ナビゲーション・フレームワーク（旧 `nav2_diffusion_*`）** |
+| `generative/nav2_diffusion_core` | ROS 非依存に近い trajectory schema, scoring concept, shared utilities |
+| `generative/nav2_diffusion_msgs` | trajectory candidates, diagnostics, benchmark result messages |
+| `generative/nav2_diffusion_onnx` | optional ONNX Runtime backend implementing `TrajectoryModel` / `PathModel` (§7.2) |
+| `generative/nav2_diffusion_safety` | safety gate, collision validation integration |
+| `generative/nav2_diffusion_controller` | Nav2 Controller Plugin integration（Mode A）, `TrajectoryModel` seam |
+| `generative/nav2_diffusion_global_planner` | Nav2 GlobalPlanner Plugin integration（Mode B）, `PathModel` seam（生成パス提案 → costmap 検証 → 最短安全パス選択） |
+| `generative/nav2_diffusion_rviz_plugins` | candidate trajectory visualization |
+| `generative/nav2_diffusion_training` | dataset, training, export pipeline（ament_python） |
+| `generative/nav2_diffusion_bringup` | example launch/config for Nav2 + Gazebo mission harness |
+| `generative/nav2_diffusion_sim` | closed-loop Gazebo obstacle-course assets（world/map/goals 単一生成） |
+| **`classical_planners/`** | **Nav2 に無い classical GlobalPlanner 群（非AI）** |
+| `classical_planners/nav2_rrt_planner` | サンプリングベース（RRT\* + RRT-Connect） |
+| `classical_planners/nav2_prm_planner` | サンプリングベース（PRM ロードマップ + Dijkstra） |
+| `classical_planners/nav2_dstar_lite_planner` | インクリメンタル探索（D\* Lite、変化セルのみ修復） |
+| `classical_planners/nav2_jps_planner` | グリッド探索（JPS、対称性枝刈りで A\* 高速化） |
+| `classical_planners/nav2_lazy_theta_star_planner` | any-angle（Lazy Theta\*、LOS 遅延）。upstream の eager Theta\* と別変種 |
+| `classical_planners/nav2_ara_star_planner` | anytime（ARA\*、ε を下げ bounded-suboptimal 解を漸進改善） |
+| `classical_planners/nav2_visibility_graph_planner` | 幾何（visibility graph、障害物凸コーナー + A\*） |
+| **`reactive_controllers/`** | **Nav2 に無い reactive Controller 群（非AI、Mode A）** |
+| `reactive_controllers/nav2_vfh_controller` | VFH+（極座標ヒストグラムで局所回避） |
+| `reactive_controllers/nav2_nd_controller` | ND（gap 選択 + 安全偏向で局所回避） |
+| **`benchmarks/`** | **オフライン比較ベンチ** |
+| `benchmarks/nav2_planner_benchmarks` | classical + 生成 GlobalPlanner の同一シナリオ比較（経路長/pose/時間 → docs/planner_comparison.md） |
+| `benchmarks/nav2_diffusion_benchmarks` | scenarios, metrics, reports |
 | `/nav2_diffusion_models` | model manifest examples and lightweight test models |
-| `/nav2_diffusion_training` | dataset, training, export pipeline |
-| `/nav2_diffusion_onnx` | optional ONNX Runtime backend implementing `TrajectoryModel` (§7.2) |
-| `/nav2_diffusion_benchmarks` | scenarios, metrics, reports |
-| `/nav2_diffusion_sim` | Gazebo / Isaac Sim scenario assets |
 | `/nav2_diffusion_tools` | rosbag conversion, model validation, report generation |
+| `/model_zoo` | curated model card / manifest / artifacts |
 | `/docker` | dev, benchmark, deployment containers |
 | `/ci` | CI scripts and simulation regression configs |
 | `/examples` | minimal demos, robot configs |

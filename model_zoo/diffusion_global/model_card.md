@@ -87,7 +87,7 @@ full Nav2 deployment benchmark:
 
 ## Reproducibility
 
-- **Command:** `PYTHONPATH=../../nav2_diffusion_training CUDA_VISIBLE_DEVICES= python3 export.py`
+- **Command:** `PYTHONPATH=../../generative/nav2_diffusion_training CUDA_VISIBLE_DEVICES= python3 export.py`
 - **Seed:** 0 (`torch.manual_seed(0)` inside the training function)
 - **Toolchain:** torch 2.10.0+cu128, onnx 1.21.0, exported on CPU
 - **Hyperparameters:** 240 samples, 700 epochs, lr 0.01, 4 flow steps (set in

@@ -73,7 +73,7 @@ headless:=True`（`TURTLEBOT3_MODEL=waffle`）で:
   `cmd_vel`（ROS→GZ）を生成。
 - **Nav2 スタックがロード**（`nav2_container` に controller_server / planner_server /
   costmaps / BT / collision_monitor / docking 等）。`FollowPath` は
-  `nav2_diffusion_controller::DiffusionController` を指す（[params](../nav2_diffusion_bringup/params/nav2_diffusion_tb3.yaml)）。
+  `nav2_diffusion_controller::DiffusionController` を指す（[params](../generative/nav2_diffusion_bringup/params/nav2_diffusion_tb3.yaml)）。
   Mode A 学習モデルを使うには `FollowPath` に `model_plugin:
   nav2_diffusion_onnx::OnnxTrajectoryModel` ＋ `model_path`（[model_zoo](../model_zoo)）＋
   `costmap_patch_size: 32` を足す。
@@ -86,7 +86,7 @@ headless:=True`（`TURTLEBOT3_MODEL=waffle`）で:
    `initial_pose`（TB3 spawn の x=-2.0, y=-0.5）を追加。RViz の初期姿勢入力なしで
    map→odom が出て global_costmap が activate する。
 2. **in-launch mission ノード**
-   [`sim_mission.py`](../nav2_diffusion_bringup/scripts/sim_mission.py): nav2 の
+   [`sim_mission.py`](../generative/nav2_diffusion_bringup/scripts/sim_mission.py): nav2 の
    `navigate_to_pose` を待ち、`/odom` を購読して、**複数 leg のミッション・コースを順に
    誘導**し、各 leg の到達/タイムアウト・経路長・時間を集計して **Markdown leaderboard
    （1 leg = 1 行 + サマリ）に書き出す**。これは offline `planner_benchmark` の多コース
@@ -99,10 +99,10 @@ headless:=True`（`TURTLEBOT3_MODEL=waffle`）で:
    goal 列は開けた `tb3_sandbox` 用に調整した持続走行（往復・巡回）で、planner_benchmark の
    gap/slalom を閉ループで再現するには world に SDF 壁が要る（future work）。**leg/コース
    解析・指標集計・leaderboard 整形は ROS 非依存の純関数に切り出し、pytest で検証**
-   （[`test/test_sim_mission.py`](../nav2_diffusion_bringup/test/test_sim_mission.py)、
+   （[`test/test_sim_mission.py`](../generative/nav2_diffusion_bringup/test/test_sim_mission.py)、
    12 ケース・`colcon test` 緑）——閉ループ駆動だけが実 Nav2＋Gazebo を要する。
 3. **専用 launch**
-   [`tb3_gazebo_mission.launch.py`](../nav2_diffusion_bringup/launch/tb3_gazebo_mission.launch.py):
+   [`tb3_gazebo_mission.launch.py`](../generative/nav2_diffusion_bringup/launch/tb3_gazebo_mission.launch.py):
    sim＋mission を 1 launch で起動し、mission 終了で launch を Shutdown。
    単発: `ros2 launch nav2_diffusion_bringup tb3_gazebo_mission.launch.py goal_x:=0.0
    goal_y:=-0.5 results_file:=/tmp/sim_mission_result.md`。
@@ -120,7 +120,7 @@ headless:=True`（`TURTLEBOT3_MODEL=waffle`）で:
      fastrtps の SHM セグメントが**578 個**滞留していたため掃除したが、掃除後も 0。
    - Fast DDS UDP 強制（`FASTDDS_BUILTIN_TRANSPORTS=UDPv4`）: 0（multicast discovery 遮断）。
    - Fast DDS UDP＋unicast localhost discovery を XML プロファイルで強制
-     ([`config/fastdds_udp_localhost.xml`](../nav2_diffusion_bringup/config/fastdds_udp_localhost.xml)): 0。
+     ([`config/fastdds_udp_localhost.xml`](../generative/nav2_diffusion_bringup/config/fastdds_udp_localhost.xml)): 0。
    - CycloneDDS（`rmw_cyclonedds_cpp`）: ノード生成自体が失敗（participant index / rcl init エラー）。
    - Fast DDS Discovery Server: `fast-discovery-server` バイナリ未インストールで起動不可。
    - → nav2 は単一コンテナ内（composition）で**プロセス内**通信するため起動はするが、

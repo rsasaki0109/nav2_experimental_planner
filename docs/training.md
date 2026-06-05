@@ -1,6 +1,6 @@
 # Training Architecture
 
-> 関連: [architecture.md](architecture.md) §7 Inference / §12.2 Runtime/Training Separation、[simulation.md](simulation.md)、[../nav2_diffusion_training/README.md](../nav2_diffusion_training/README.md)
+> 関連: [architecture.md](architecture.md) §7 Inference / §12.2 Runtime/Training Separation、[simulation.md](simulation.md)、[../nav2_diffusion_training/README.md](../generative/nav2_diffusion_training/README.md)
 
 ## データセット生成（実装済み）
 

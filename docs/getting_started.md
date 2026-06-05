@@ -1,6 +1,6 @@
 # Getting Started
 
-> 対象: 既存の Nav2 ユーザー。関連: [architecture.md](architecture.md) §3.2 Mode A、[simulation.md](simulation.md)、[../nav2_diffusion_bringup/README.md](../nav2_diffusion_bringup/README.md)
+> 対象: 既存の Nav2 ユーザー。関連: [architecture.md](architecture.md) §3.2 Mode A、[simulation.md](simulation.md)、[../nav2_diffusion_bringup/README.md](../generative/nav2_diffusion_bringup/README.md)
 
 `nav2_experimental_planner` は、Nav2 の plugin を差し替えるだけで、**Nav2 公式に無い planner / controller** を試せます。生成型ローカルプランナ（「Learned models propose. Classical safety disposes. Nav2 executes.」）に加え、**classical な GlobalPlanner 8 種**（RRT\* / RRT-Connect / PRM / D\* Lite / JPS / Lazy Theta\* / ARA\* / visibility graph）と **reactive Controller 2 種**（VFH+ / ND）を収録しています。
 
@@ -43,7 +43,7 @@ controller_server:
       # パラメータは nav2_diffusion_controller/README.md を参照
 ```
 
-完全な例: [../nav2_diffusion_bringup/params/nav2_diffusion_tb3.yaml](../nav2_diffusion_bringup/params/nav2_diffusion_tb3.yaml)（Nav2 デフォルト params の FollowPath だけを差し替えたもの）。
+完全な例: [../nav2_diffusion_bringup/params/nav2_diffusion_tb3.yaml](../generative/nav2_diffusion_bringup/params/nav2_diffusion_tb3.yaml)（Nav2 デフォルト params の FollowPath だけを差し替えたもの）。
 
 ## classical な planner / controller を試す
 
@@ -70,7 +70,7 @@ planner_server:
 | visibility graph | `nav2_visibility_graph_planner::VisibilityGraphPlanner` | `visibility_graph_planner_example.yaml` |
 | 生成型 Mode B | `nav2_diffusion_global_planner::DiffusionGlobalPlanner` | `diffusion_global_planner_example.yaml` |
 
-例 yaml はすべて [../nav2_diffusion_bringup/params/](../nav2_diffusion_bringup/params) にあり、各 plugin の全パラメータは対応パッケージの README を参照。
+例 yaml はすべて [../nav2_diffusion_bringup/params/](../generative/nav2_diffusion_bringup/params) にあり、各 plugin の全パラメータは対応パッケージの README を参照。
 
 生成型 Mode B は既定では解析的 `FanPathModel` で動くが、**学習済みモデル**に差し替えられる。[model_zoo](../model_zoo/diffusion_global) の costmap 条件付き flow モデル（`costmap_flow.onnx`）を使うには:
 
@@ -132,7 +132,7 @@ ros2 launch nav2_diffusion_bringup tb3_gazebo_diffusion.launch.py headless:=True
 
 RViz の "2D Pose Estimate" で初期姿勢、"Nav2 Goal" でゴールを与えると走行します。
 
-demo launch は `candidate_markers` ノードも起動します。RViz に **MarkerArray display** を追加して `/candidate_markers` を指定すると、候補軌道が **best=緑 / safe=青 / rejected=赤** で表示されます（[../nav2_diffusion_rviz_plugins/README.md](../nav2_diffusion_rviz_plugins/README.md)）。controller の候補トピックが異なる場合は `candidates_topic:=...` で指定してください。
+demo launch は `candidate_markers` ノードも起動します。RViz に **MarkerArray display** を追加して `/candidate_markers` を指定すると、候補軌道が **best=緑 / safe=青 / rejected=赤** で表示されます（[../nav2_diffusion_rviz_plugins/README.md](../generative/nav2_diffusion_rviz_plugins/README.md)）。controller の候補トピックが異なる場合は `candidates_topic:=...` で指定してください。
 
 ## 安全性の前提（必読）
 
@@ -144,6 +144,6 @@ demo launch は `candidate_markers` ノードも起動します。RViz に **Mar
 - どれを使うか迷ったら: [choosing_a_planner.md](choosing_a_planner.md)（状況別の推奨・決定フロー）
 - 横断比較: [planner_comparison.md](planner_comparison.md)（classical GlobalPlanner 8 種 + 生成型 Mode B）/ [controller_comparison.md](controller_comparison.md)（VFH+ vs ND）
 - 挙動の理解: 候補軌道（`TrajectoryCandidates`）と `SafetyState` を RViz / `ros2 topic echo` で観察
-- 自分の robot へ: [../nav2_diffusion_controller/README.md](../nav2_diffusion_controller/README.md) のパラメータ
+- 自分の robot へ: [../nav2_diffusion_controller/README.md](../generative/nav2_diffusion_controller/README.md) のパラメータ
 - 自社データで学習・評価: [training.md](training.md) / [benchmarking.md](benchmarking.md)
 - モデルを追加: [contributing.md](contributing.md)

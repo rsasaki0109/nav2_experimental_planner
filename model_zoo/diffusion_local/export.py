@@ -21,7 +21,7 @@ package's synthetic one-sided-obstacle dataset and exports `costmap_flow.onnx`,
 the model the card / manifest describe. Training is deterministic
 (torch.manual_seed(0) inside the training function); run on CPU for portability:
 
-    PYTHONPATH=../../nav2_diffusion_training CUDA_VISIBLE_DEVICES= python3 export.py
+    PYTHONPATH=../../generative/nav2_diffusion_training CUDA_VISIBLE_DEVICES= python3 export.py
 
 The exported file matches the Mode A TrajectoryModel ONNX contract consumed by
 nav2_diffusion_onnx::OnnxTrajectoryModel:

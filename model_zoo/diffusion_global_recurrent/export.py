@@ -35,7 +35,7 @@ unchanged here.
 Trains on the GPU when available; always exports on CPU for a portable artifact.
 Deterministic CPU rebuild:
 
-    PYTHONPATH=../../nav2_diffusion_training CUDA_VISIBLE_DEVICES= python3 export.py
+    PYTHONPATH=../../generative/nav2_diffusion_training CUDA_VISIBLE_DEVICES= python3 export.py
 
 Mode B PathModel ONNX contract (consumed by nav2_diffusion_onnx::OnnxPathModel):
 

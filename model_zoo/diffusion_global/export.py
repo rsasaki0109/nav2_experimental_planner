@@ -22,7 +22,7 @@ package's synthetic one-sided-obstacle dataset and exports the ONNX file
 deterministic (torch.manual_seed(0) inside the training function); run on CPU for
 portability:
 
-    PYTHONPATH=../../nav2_diffusion_training CUDA_VISIBLE_DEVICES= \\
+    PYTHONPATH=../../generative/nav2_diffusion_training CUDA_VISIBLE_DEVICES= \\
         python3 export.py
 
 The exported file matches the Mode B PathModel ONNX contract consumed by
