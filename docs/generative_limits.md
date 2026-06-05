@@ -48,7 +48,8 @@
 
 - footprint 検証付きの `planner_comparison.md` *off-centre gap*（幅 1 m の狭スロット）では、transformer の提案も**有効 path を通せず** `DiffusionGlobalPlanner` は *no path*（flow と同じ）。提案はスロットを「狙う」が、狭スロットを footprint 余裕込みで**貫通**するには至らない。
 - **候補多様性の修正（重要）**: 初期実装は K 候補が**ほぼ同一**に collapse し（recon を単一 expert に回帰）、1 つ詰まると全滅して **side obstacle すら no path** になった。**候補を expert 周りの横方向ファン（±0.4 m）として学習**する（flow が K 個の固定 latent から得る spread の代替）と、validator に選択肢が出て **side obstacle は解ける peer に回復**。それでも 1 m スロットは貫通せず。
-- 現状の benchmark 結果: transformer は **flow と同等の peer**（*clear* と *side obstacle* を解き、*off-centre gap* / *slalom* は *no path*）。**gap の完全な解は引き続き hybrid**。transformer が示したのは「**提案ステージの方向限界は表現（アーキ）の問題で、容量・footprint 対応学習・広いスロットで将来 benchmark 突破に届きうる**」という布石であって、現時点の gap 勝利ではない。
+- **直進 plateau expert も試したが gap は通らず（負の結果）**: 斜め横断で狭スロット端を擦るのが原因と見て、expert を **slot_y で平坦に壁帯+マージンを通過する plateau** に替え、壁を aligned x≈2 m（benchmark 幾何）に寄せて再学習した。raw では正しく狙うが、**footprint 検証付き benchmark の *off-centre gap* は依然 *no path***（clear/side は peer のまま）。→ **aim・候補多様性ファン・直進 plateau の3つの原理的な手を尽くしても、幅 1 m の検証付きスロットは pure-generative では貫通できない**（analytic fan と hybrid は解く）。天井は頑健。
+- 現状の benchmark 結果: transformer は **flow と同等の peer**（*clear* と *side obstacle* を解き、*off-centre gap* / *slalom* は *no path*）。**gap の完全な解は引き続き hybrid**。transformer が示したのは「**提案ステージの方向限界は表現（アーキ）の問題**」という知見であって、現時点の gap 勝利ではない。検証付き gap を pure-generative で本当に通すには、より広いスロット/より大きい容量/footprint を陽に学習に入れる（提案を validator が通す形に最適化する）等が要る — future work。
 
 > 出荷: `diffusion_global_costmap_transformer_v0` を model_zoo に収録し、benchmark にも **Diffusion (Mode B, transformer)** 行として載せた（flow と同等の peer なので公平）。raw 方向の A/B と C++ 方向テスト（`CuratedZooTransformerAimsAtOffCentreSlot`）付き。gap は依然 hybrid が解く。
 
