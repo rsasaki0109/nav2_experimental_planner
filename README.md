@@ -131,6 +131,23 @@ A survey (cross-checking papers against existing OSS) confirmed that **for Nav2 
 
 This is the **Nav2 GlobalPlanner (Mode B)**, symmetric to the local controller (Mode A). No OSS integrating a generative model into `nav2_core::GlobalPlanner` existed at survey time, so it is implemented as a `PathModel` seam (analytic `FanPathModel` / learned `OnnxPathModel`, with costmap conditioning on the same seam) ([nav2_diffusion_global_planner](generative/nav2_diffusion_global_planner)). Like Mode A, learned Mode B ships **3 families — flow / transformer / recurrent (GRU autoregressive rollout) —** in `model_zoo`. **The transformer aims proposals at an off-centre slot via token attention, and by training with a footprint-aware (validator-aware) loss it is the first Mode B model to thread the footprint-validated *off-centre gap* purely generatively** (verified in the real C++ benchmark across 8 courses, no fallback). There is an honest trade-off, though: the cost of off-axis specialization is that it **misses dead-ahead gaps (centred/narrow gap)** — conversely flow / recurrent thread the dead-ahead gaps and are weak off-axis, so they are **complementary peers**. The remaining *slalom* and the completeness guarantee are hybrid territory. Cross-comparison is in [docs/planner_comparison.md](docs/planner_comparison.md); where it works and where it hits a ceiling is in [docs/generative_limits.md](docs/generative_limits.md).
 
+## Closed-loop Gazebo courses (Mode A + B)
+
+<p align="center">
+  <img src="docs/sim_courses.gif" width="360" alt="The nav2_diffusion_sim obstacle courses (centred gap / off-centre gap / slalom): a robot routes start→goal through each">
+</p>
+
+<p align="center"><em>The obstacle courses shipped in <a href="nav2_diffusion_sim">nav2_diffusion_sim</a>, mirroring the off-line <code>planner_benchmark</code> scenarios. Each course is generated from a <strong>single spec</strong> into three consistent artifacts — a gz-sim world, a matching occupancy map, and the mission goals — so the world, map, and goals cannot drift. The figure shows the generated course layouts with a valid start→goal route (grid A\* on the course occupancy grid). Reproduce with <a href="tools/gazebo_courses_demo.py">tools/gazebo_courses_demo.py</a>.</em></p>
+
+Drive a course closed-loop on a real ROS host with
+`ros2 launch nav2_diffusion_sim tb3_gazebo_course.launch.py course:=gap` — it loads
+the world + map, spawns TB3 at the start, brings up Nav2 with the
+`DiffusionController`, runs the mission, and writes a Markdown leaderboard. The
+course **assets and geometry are generated and unit-tested in-tree**; the
+closed-loop *numbers* require a real ROS host (the dev sandbox blocks inter-process
+DDS), so none are fabricated here — see [docs/simulation.md](docs/simulation.md)
+section 10.5.
+
 ## Documentation map
 
 | Document | Contents |

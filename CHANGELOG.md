@@ -6,6 +6,14 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
 ## [Unreleased]
 
+### Added
+- **Animated visualization of the closed-loop Gazebo courses** in the README
+  (`docs/sim_courses.gif`, reproducible via `tools/gazebo_courses_demo.py`). It
+  renders the `nav2_diffusion_sim` course layouts (centred / off-centre gap /
+  slalom) from the generated occupancy grids with a valid start→goal route (grid
+  A\*) and a new README section. Honest scope: it depicts the *courses*, not a
+  closed-loop Gazebo run — real closed-loop numbers still need a real ROS host.
+
 ## [0.10.0] - 2026-06-05
 
 Theme: **the off-centre-gap ceiling falls, and the evaluation gets honest and
