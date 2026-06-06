@@ -6,6 +6,14 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
 ## [Unreleased]
 
+### Changed
+- **The demo MCAP now ships an identity `/tf_static` (`map`→`base_link`)** so a
+  Lichtblick / Foxglove 3D panel has a coordinate frame at load and renders the
+  data — without it the panel shows "no frames" and stays empty. Verified by
+  driving Lichtblick's web build (served from its `lichtblick-web` release) in a
+  headless browser: it loads `docs/mode_b_demo.mcap` and renders, and the
+  `/tf_static` is what makes the display-frame selectable. (`tools/foxglove_mcap_demo.py`.)
+
 ### Added
 - **Viewer-style GIF of the demo MCAP in the README** (`tools/mcap_view_gif.py` →
   `docs/mcap_view.gif`). A GUI viewer can't be screen-recorded in the dev sandbox

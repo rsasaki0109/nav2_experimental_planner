@@ -55,6 +55,8 @@ live な ROS / bridge が無くても、収録済みの **MCAP** を Foxglove St
 `PathFlowPlanner` が start→goal の候補を提案 → costmap 検証 → 最短安全パス選択）を障害物
 スイープしながら ROS 2 メッセージとして [docs/mode_b_demo.mcap](mode_b_demo.mcap) に書き出す
 （`OccupancyGrid` / `Path` / `PoseArray` / `PoseStamped`、24 フレーム・約 2.3 s）。
+identity の `/tf_static`（`map`→`base_link`）も収録するので、ビューアの 3D パネルが座標
+フレームを得て即描画できる（無いと「no frames」で何も出ない）。
 
 ```bash
 pip install torch mcap mcap-ros2-support

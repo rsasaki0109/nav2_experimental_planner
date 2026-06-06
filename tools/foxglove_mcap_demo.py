@@ -70,6 +70,12 @@ _DEPS = {
     'nav_msgs/MapMetaData':
         'builtin_interfaces/Time map_load_time\nfloat32 resolution\n'
         'uint32 width\nuint32 height\ngeometry_msgs/Pose origin\n',
+    'geometry_msgs/Vector3': 'float64 x\nfloat64 y\nfloat64 z\n',
+    'geometry_msgs/Transform':
+        'geometry_msgs/Vector3 translation\ngeometry_msgs/Quaternion rotation\n',
+    'geometry_msgs/TransformStamped':
+        'std_msgs/Header header\nstring child_frame_id\n'
+        'geometry_msgs/Transform transform\n',
 }
 _ROOTS = {
     'nav_msgs/msg/OccupancyGrid': (
@@ -88,6 +94,11 @@ _ROOTS = {
         'std_msgs/Header header\ngeometry_msgs/Pose pose\n',
         ['std_msgs/Header', 'builtin_interfaces/Time', 'geometry_msgs/Pose',
          'geometry_msgs/Point', 'geometry_msgs/Quaternion']),
+    'tf2_msgs/msg/TFMessage': (
+        'geometry_msgs/TransformStamped[] transforms\n',
+        ['std_msgs/Header', 'builtin_interfaces/Time', 'geometry_msgs/TransformStamped',
+         'geometry_msgs/Transform', 'geometry_msgs/Vector3',
+         'geometry_msgs/Quaternion']),
 }
 
 
@@ -189,7 +200,16 @@ def main():
         dt_path = 'nav_msgs/msg/Path'
         dt_pa = 'geometry_msgs/msg/PoseArray'
         dt_ps = 'geometry_msgs/msg/PoseStamped'
+        dt_tf = 'tf2_msgs/msg/TFMessage'
         dt_ns = 100_000_000  # 0.1 s per frame
+        # Static identity map->base_link transform (published once, latched) so a
+        # viewer's 3D panel has a frame tree available at load — without /tf_static
+        # the 3D panel shows "no frames" and renders nothing.
+        w.write_message('/tf_static', schemas[dt_tf], {'transforms': [{
+            'header': _header('map', 0), 'child_frame_id': 'base_link',
+            'transform': {'translation': {'x': 0.0, 'y': 0.0, 'z': 0.0},
+                          'rotation': {'x': 0.0, 'y': 0.0, 'z': 0.0, 'w': 1.0}},
+        }]}, 0, 0)
         for i, cy in enumerate(centers):
             ns = i * dt_ns
             safe = [(k, p) for k, p in enumerate(paths) if not hits_obstacle(p, cy)]
