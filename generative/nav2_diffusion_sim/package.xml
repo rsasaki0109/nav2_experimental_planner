@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>nav2_diffusion_sim</name>
-  <version>0.10.0</version>
+  <version>0.11.0</version>
   <description>
     Closed-loop Gazebo course assets for nav2_experimental_planner: obstacle
     worlds (gz-sim SDF), matching occupancy maps, and mission goals generated

@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>nav2_lazy_theta_star_planner</name>
-  <version>0.10.0</version>
+  <version>0.11.0</version>
   <description>
     Lazy Theta* any-angle global planner for Nav2
     (nav2_core::GlobalPlanner). Upstream Nav2 ships standard (eager) Theta* in

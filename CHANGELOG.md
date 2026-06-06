@@ -6,6 +6,20 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-06-06
+
+Theme: **the Mode B transformer threads off-centre *and* dead-ahead gaps, plus
+portable visualization and an honest live-ROS post-mortem.** Raising the transformer's
+capacity (dim 64 / 8 heads / 3 blocks) and tri-mixing dead-ahead training samples
+closes the over-aim trade-off — the shipped model now threads the off-centre gap *and*
+the centred / narrow / double-gate dead-ahead gaps (the far off-centre gap and slalom
+remain hybrid territory). For visualization without a live ROS graph, the real Mode B
+pipeline is recorded to an MCAP openable in the Foxglove web/desktop app, and the
+closed-loop Gazebo obstacle courses render to a GIF. The sandbox "no live ROS" limit
+was root-caused to the agent's command sandbox (DDS discovery, not the machine), with
+the Gazebo mission harness hardened (`server_wait_sec`). Plus the v0.10.0 follow-ups:
+8-course planner benchmark, single-source Gazebo courses, multi-leg mission leaderboard.
+
 ### Changed
 - **Closed the transformer's gap trade-off by raising model capacity — the shipped
   Mode B transformer now threads BOTH the off-centre gap AND the dead-ahead gaps.**
