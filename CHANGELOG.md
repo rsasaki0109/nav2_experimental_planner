@@ -6,7 +6,24 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
 ## [Unreleased]
 
+### Added
+- **`make_costmap_path_slalom_dataset` + a `'slalom'` path dataset option** (two
+  staggered walls + an S-shaped two-crossing expert), with a unit test — the data
+  for the slalom pure-generative experiment below.
+
 ### Changed
+- **Tried slalom pure-generative; found it needs an architecture change, not data
+  (honest negative result with a diagnosis).** Added the S-shaped slalom expert and
+  retrained: in the real C++ benchmark slalom stays *no path* — quad-mixing it into
+  `'both'` left slalom unsolved and cost the off-centre gap (capacity overflow), and
+  a slalom-*only* model also fails to thread it with a high training loss (~0.32 vs
+  ~0.04 for single-bow tasks). Root cause is the transformer's lateral-fan candidate
+  mechanism: an S must thread *both* slots, but a lateral offset shifts both
+  crossings off their slots, so every candidate misses. So `'both'` stays tri-mix,
+  the **shipped model is unchanged** (v0.11.0), the slalom data lives on as the
+  `'slalom'` option, and the finding is recorded in `docs/generative_limits.md`.
+  Threading slalom needs a per-crossing candidate-diversity mechanism (not a lateral
+  fan) or a sequential output family.
 - **Refreshed `docs/roadmap.md` to the v0.11.0 state** (was "v0.9.0 時点"):
   off-centre-gap ceiling break (v0.10.0) and the capacity-bump that closed the
   off-centre/dead-ahead gap trade-off (v0.11.0), package reorg, CI revival in a

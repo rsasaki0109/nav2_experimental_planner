@@ -95,7 +95,24 @@ aim は出るが、これだけでは benchmark の gap は通らなかった（
 | *far off-centre gap* | ❌ | ❌ | ❌ | 純生成は届かず（hybrid 領域） |
 | *slalom*（S 字二段壁） | ❌ | ❌ | ❌ | hybrid のみ |
 
-transformer は**もはや「相補的な片側」ではなく、off-axis も dead-ahead も通す上位の proposer** になった（off-centre は依然 transformer 専有）。次の本筋は *far off-centre* / *slalom* の純生成化で、さらなる容量増・カリキュラム/マルチタスク学習・hybrid 連携が候補。
+transformer は**もはや「相補的な片側」ではなく、off-axis も dead-ahead も通す上位の proposer** になった（off-centre は依然 transformer 専有）。次の本筋は *far off-centre* / *slalom* の純生成化。
+
+#### slalom を純生成で試した結果（2026-06、データでは解けない＝アーキの問題）
+
+*slalom*（二段互い違い壁の S 字・2 回横断）を純生成で通すべく、**S 字 expert データ**を実装した
+（`make_costmap_path_slalom_dataset`：二壁パッチ + 二山ガウシアンの S 字経路、`dataset='slalom'`）。
+だが大容量 transformer で検証した結果、**データを足しても通らない**:
+
+- **`'both'` に slalom を quad-mix** → slalom は *no path* のまま、かつ off-centre を巻き添えで喪失（容量超過、loss 0.11）。
+- **slalom 単独で全力学習**（240 サンプル全部 slalom）→ それでも *no path*、しかも**学習 loss が 0.32** と単一ふくらみタスク（~0.04）の桁違いに高く、**S 字を fit すること自体に失敗**。
+
+**原因はデータでなくアーキテクチャ**: 本モデルは K 候補を expert ± **横一律オフセットの fan** で出す。
+S 字は**両方の隙間を同時に**通す必要があり、横にずらすと**両クロッシングが同時に隙間を外す**ので
+K 候補が全滅 → validator に生存者なし。加えて 2 回横断 S の decode 自体が現容量で難しい。
+
+→ slalom 純生成には**候補多様化機構の作り直し**（横一律 fan でなく per-crossing 摂動 or サンプリング）
+**または逐次出力族**が要る、というのが実証的結論。`make_costmap_path_slalom_dataset` は将来の
+アーキ作業のために残し、**出荷 `'both'` からは外して**ある（slalom は引き続き hybrid 完全性が担保）。
 
 ### Mode A: 障害物スレッディング（回り込み通過）
 

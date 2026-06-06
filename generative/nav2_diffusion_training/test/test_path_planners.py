@@ -256,6 +256,28 @@ def test_centred_gap_dataset_routes_straight_through():
     assert mid[:, mid.shape[1] // 2].sum().item() == 0   # centre column is the slot
 
 
+def test_slalom_dataset_expert_is_an_s_curve():
+    """
+    The slalom dataset has the seam shapes and an S-shaped (two-crossing) expert.
+
+    Two staggered walls: the expert weaves through slot A (one side) then slot B
+    (the other), so the lateral track takes both signs. (Threading this in the real
+    benchmark needs an architecture change, not just data — the transformer + lateral
+    fan can't; see docs/generative_limits.md. The dataset stays for that work.)
+    """
+    from nav2_diffusion_training.path_planners import (
+        PATH_DIM, PATH_H, make_costmap_path_slalom_dataset)
+    ctx, patches, targets = make_costmap_path_slalom_dataset(6)
+    assert ctx.shape[1] == 2
+    assert patches.shape[1:] == (1, 24, 24)
+    assert targets.shape[1:] == (PATH_H, PATH_DIM)
+    ys = targets[0, :, 1]
+    # S-shape: the expert lateral track crosses to both sides (two staggered slots).
+    assert ys.min().item() < -0.5 and ys.max().item() > 0.5
+    # Two wall bands present in the patch.
+    assert patches[0, 0].sum().item() > 0
+
+
 def test_footprint_penalty_prefers_routing_through_the_slot():
     """
     The footprint-clearance term penalizes a wall-crossing path over a slot one.

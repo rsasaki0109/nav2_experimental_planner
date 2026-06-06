@@ -605,21 +605,75 @@ def make_costmap_path_centred_gap_dataset(num_samples):
     )
 
 
+def make_costmap_path_slalom_dataset(num_samples):
+    """
+    Slalom data: two staggered walls forcing an S-shaped (two-crossing) detour.
+
+    The hardest gap shape: wall A has its slot to one side and wall B (further
+    ahead) to the other, so the expert path must weave through slot A then slot B —
+    an S, i.e. *two* lateral crossings. Single-bow proposers can't represent this;
+    teaching the transformer the S directly (a two-Gaussian-bump expert over the
+    aligned waypoints) is what lets a pure-generative model thread the *slalom*
+    course. Both A-low/B-high and the mirror A-high/B-low are emitted.
+    """
+    contexts = []
+    patches = []
+    targets = []
+    offs = [1.6, 2.0]                          # |lateral| slot offset [m]
+    a_spans = [(0.9, 1.6), (1.2, 1.9)]         # wall A forward band [m]
+    b_spans = [(2.4, 3.1), (2.7, 3.4)]         # wall B forward band [m]
+    hws = [0.7, 0.85]                          # slot half-width [m]
+    sigma = 0.18
+    i = 0
+    while len(contexts) < num_samples:
+        d = 4.0 + 1.2 * ((i * 3) % 4) / 3.0    # goal distance 4.0..5.2 m
+        off = offs[i % len(offs)]
+        a_lo, a_hi = a_spans[(i // 2) % len(a_spans)]
+        b_lo, b_hi = b_spans[(i // 2) % len(b_spans)]
+        hw = hws[(i // 2) % len(hws)]
+        t_a = min(0.9, max(0.1, 0.5 * (a_lo + a_hi) / d))
+        t_b = min(0.95, max(0.15, 0.5 * (b_lo + b_hi) / d))
+        for sign in (1.0, -1.0):               # A on -y then B on +y, and mirror
+            if len(contexts) >= num_samples:
+                break
+            slot_a = -sign * off
+            slot_b = sign * off
+            rows = []
+            for h in range(PATH_H):
+                t = h / (PATH_H - 1)
+                y = (slot_a * math.exp(-((t - t_a) / sigma) ** 2) +
+                     slot_b * math.exp(-((t - t_b) / sigma) ** 2))
+                rows.append([t * d, y])
+            patch = torch.maximum(_gap_patch(slot_a, a_lo, a_hi, hw),
+                                  _gap_patch(slot_b, b_lo, b_hi, hw))
+            contexts.append([d, 0.0])
+            patches.append(patch)
+            targets.append(rows)
+        i += 1
+    return (
+        torch.tensor(contexts, dtype=torch.float32),
+        torch.stack(patches),
+        torch.tensor(targets, dtype=torch.float32),
+    )
+
+
 def _path_dataset(dataset, num_samples):
-    """Select / combine the path datasets: 'side', 'gap', 'centred', or 'both'."""
+    """Select/combine: 'side', 'gap', 'centred', 'slalom', or 'both'."""
     if dataset == 'side':
         return make_costmap_path_dataset(num_samples)
     if dataset == 'gap':
         return make_costmap_path_gap_dataset(num_samples)
     if dataset == 'centred':
         return make_costmap_path_centred_gap_dataset(num_samples)
+    if dataset == 'slalom':
+        return make_costmap_path_slalom_dataset(num_samples)
     if dataset == 'both':
-        # Tri-mix: one-sided obstacles + off-centre gaps + dead-ahead (centred) gaps,
-        # so the (larger-capacity) transformer can learn to pick the free side, route
-        # through an off-centre slot, AND thread a dead-ahead slot. Only the
-        # transformer Mode B model uses 'both'. (At the previous small capacity this
-        # tri-mix only *shifted* the trade-off; revisited with more capacity — see
-        # docs/generative_limits.md.)
+        # Tri-mix: one-sided obstacles + off-centre gaps + dead-ahead (centred) gaps.
+        # (Slalom was tried as a 4th component, but the transformer + lateral-fan
+        # architecture can't thread it even trained slalom-only — a lateral fan
+        # shifts both S-crossings off their slots; see make_costmap_path_slalom_dataset
+        # and docs/generative_limits.md. Slalom stays the 'slalom' option for the
+        # architecture work that would be needed, and out of the shipped 'both'.)
         third = num_samples // 3
         a = make_costmap_path_dataset(num_samples - 2 * third)
         b = make_costmap_path_gap_dataset(third)
