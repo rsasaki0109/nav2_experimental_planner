@@ -181,6 +181,32 @@ def test_costmap_path_recurrent_exports_contract(tmp_path):
     assert np.isfinite(out).all()
 
 
+def test_costmap_path_attnseq_exports_contract(tmp_path):
+    """The attnseq Mode B planner exports the same context+costmap ONNX seam.
+
+    attnseq (cross-attention perception + per-step cross-attn GRU decoder, no
+    lateral fan) is research infra kept for future slalom work; see
+    docs/generative_limits.md. This only guards the I/O contract, not skill.
+    """
+    from nav2_diffusion_training.path_planners import (
+        PATH_COSTMAP_SIZE, PATH_H, PATH_K, train_and_export_costmap_path)
+
+    path = os.path.join(str(tmp_path), 'costmap_path_attnseq.onnx')
+    train_and_export_costmap_path(
+        path, num_samples=12, epochs=3, kind='attnseq', dataset='slalom')
+
+    ort = pytest.importorskip('onnxruntime')
+    import numpy as np
+    session = ort.InferenceSession(path, providers=['CPUExecutionProvider'])
+    names = {i.name for i in session.get_inputs()}
+    assert names == {'context', 'costmap'}
+    ctx = np.array([[5.0, 0.0]], dtype=np.float32)
+    cm = np.zeros((1, 1, PATH_COSTMAP_SIZE, PATH_COSTMAP_SIZE), dtype=np.float32)
+    out = session.run(None, {'context': ctx, 'costmap': cm})[0]
+    assert out.shape == (1, PATH_K, PATH_H, 2)
+    assert np.isfinite(out).all()
+
+
 def test_costmap_path_recurrent_reads_costmap_and_veers():
     """
     Recurrent loss decreases, candidates roll out forward, and the patch is read.

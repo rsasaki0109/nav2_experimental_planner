@@ -126,7 +126,17 @@ K 候補が全滅 → validator に生存者なし。加えて 2 回横断 S の
 - **fit 自体が難**: footprint を外しても loss 0.14（単一ふくらみ ~0.04 の 3 倍）で、**MLP head に強化しても改善せず**（0.32 のまま）＝ head 容量が律速ではない。
 - 横一律 fan を 0 にした中央候補（＝素の S）でも通らない＝ fit 不足が一次律速。
 
-**結論**: slalom は data / 容量 / footprint / head の**単一修正では解けず**、tokenizer・損失定式化（footprint を slalom 対応に）・出力表現（H=12 では二段横断 S の精密化が苦しい）・候補多様化を**協調的に作り直す本格研究**が要る。現実解として slalom は引き続き **hybrid プランナ**が担保。
+**アーキ全面作り直しでも越えられなかった（2026-06、"大改修" 実験）**: 上の切り分けを受け、**アーキファミリそのものを別系統に作り直した** `CostmapPathAttnSeqPlanner` を実装した（cross-attention 知覚 tokenizer + **per-step クロスアテンションで costmap memory を参照する逐次 GRU decoder** + K 個の学習 seed、**横一律 fan を廃止**）。slalom 単独で全力学習した結果:
+
+| アーキ | fp=3.0 | fp=0（素の再構成） |
+|---|--:|--:|
+| transformer（v0.11.0 出荷） | 0.32 | 0.14 |
+| MLP head | 0.32 | — |
+| **attnseq（大改修）** | **0.317** | **0.1448** |
+
+**3 系統が同一プラトーに収束した**。容量増（v0.11.0）でも、head 強化（MLP）でも、知覚・decoder の全面作り直し（attnseq）でも、fp=0 の素の再構成は ~0.14 で頭打ち。残差 RMS ≈0.38 は「S 字振幅 1.8 の半分しか描けず両ゲートを実際には通らない」水準で、benchmark でも *no path*。本質的難所は **2 回横断の位相を gate 位置にロックする精度**であり、**pointwise MSE 回帰のアーキを取り替えても超えられない**ことが実証された。
+
+**結論**: slalom は data / 容量 / footprint / head の**単一修正では解けず**、さらに**アーキファミリの全面作り直し（attnseq）でも transformer と同一プラトー**だった。残る本筋は「より大きいモデル」ではなく**定式化の転換** — (a) **回帰でなくサンプリング系出力**（diffusion / flow ヘッドで多様な候補を出し、決定論的 footprint validator が貫通する 1 本を選ぶ＝本リポジトリの "propose / dispose" 思想そのもの）、(b) **costmap 解像度を上げる**（24→48 で gate を空間的に鋭く）、(c) **位相にスラックを許す損失**（DTW / Chamfer）。`make_costmap_path_slalom_dataset` と `attnseq` 系の実装はこの将来研究のために残す。現実解として slalom は引き続き **hybrid プランナ**が担保。
 
 ### Mode A: 障害物スレッディング（回り込み通過）
 

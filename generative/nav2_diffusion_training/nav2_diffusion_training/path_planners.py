@@ -451,6 +451,58 @@ def _aligned_patch(side, inner=0.0, x_lo=1.5, x_hi=4.0):
     return patch
 
 
+class CostmapPathAttnSeqPlanner(nn.Module):
+    """
+    Attention-perception + sequential cross-attending decoder global-path planner.
+
+    The slalom-targeted architecture (docs/generative_limits.md). It keeps the
+    transformer's **attention perception** (the costmap patch is tokenized and a
+    context token prepended, so the model can localize *multiple* slots) but
+    replaces the single-shot linear head — which could not fit a two-crossing S —
+    with a **sequential decoder**: a GRU rolls the path out one waypoint at a time,
+    and at each step it **cross-attends to the costmap memory**, so each waypoint can
+    look at the slot relevant to its forward position (slot A early, slot B late).
+    The K candidates come from K learned seeds (no lateral fan — a fan would shift
+    both S-crossings off their slots), so diversity does not destroy the routing.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.tok = _PathCostmapTokenizer(_PATH_TF_DIM)
+        self.ctx = nn.Linear(CTX_DIM, _PATH_TF_DIM)
+        self.attn = _CrossAttnBlock(_PATH_TF_DIM, _PATH_TF_HEADS)
+        self.seeds = nn.Parameter(torch.randn(PATH_K, _PATH_TF_DIM) * 0.1)
+        self.step_emb = nn.Parameter(torch.randn(PATH_H, _PATH_TF_DIM) * 0.1)
+        self.cell = nn.GRUCell(PATH_DIM + _PATH_TF_DIM, _PATH_TF_DIM)
+        self.head = nn.Sequential(
+            nn.LayerNorm(_PATH_TF_DIM), nn.Linear(_PATH_TF_DIM, PATH_DIM))
+
+    def forward(self, context, costmap):
+        b = context.shape[0]
+        tokens = self.tok(costmap)                          # [B, N, D]
+        ctx = self.ctx(context).unsqueeze(1)                # [B, 1, D]
+        memory = torch.cat([ctx, tokens], dim=1)            # [B, 1 + N, D]
+        outs = []
+        for k in range(PATH_K):
+            h = self.seeds[k].unsqueeze(0).expand(b, -1) + ctx.squeeze(1)
+            prev = torch.zeros(b, PATH_DIM, device=context.device, dtype=context.dtype)
+            steps = []
+            for t in range(PATH_H):
+                q = (h + self.step_emb[t].unsqueeze(0)).unsqueeze(1)   # [B, 1, D]
+                a = self.attn(q, memory).squeeze(1)                    # [B, D]
+                h = self.cell(torch.cat([prev, a], dim=-1), h)
+                prev = self.head(h)
+                steps.append(prev)
+            outs.append(torch.stack(steps, dim=1).unsqueeze(1))
+        return torch.cat(outs, dim=1)                       # [B, K, H, 2]
+
+    def recon_loss(self, context, costmap, target):
+        """MSE of every candidate against the expert (K seeds give the diversity)."""
+        out = self(context, costmap)
+        tgt = target.unsqueeze(1).expand(-1, PATH_K, -1, -1)
+        return ((out - tgt) ** 2).mean()
+
+
 def make_costmap_path_dataset(num_samples):
     """
     Goal-aligned paths that veer toward the obstacle-free side of the patch.
@@ -710,6 +762,8 @@ def train_and_export_costmap_path(path, num_samples=96, epochs=400, lr=0.01, ste
         model = CostmapPathTransformerPlanner()
     elif kind == 'recurrent':
         model = CostmapPathRecurrentPlanner()
+    elif kind == 'attnseq':
+        model = CostmapPathAttnSeqPlanner()
     else:
         raise ValueError('unknown path planner kind: ' + kind)
     if footprint > 0.0 and kind == 'flow':
@@ -728,9 +782,15 @@ def train_and_export_costmap_path(path, num_samples=96, epochs=400, lr=0.01, ste
             # Validator-aware training: one full-batch forward feeds fan-recon,
             # smoothness and the footprint-clearance penalty together.
             out = model(context, costmap)                   # [B, K, H, 2]
-            tgt_x = target[..., 0].unsqueeze(1).expand(-1, PATH_K, -1)
-            tgt_y = target[..., 1].unsqueeze(1) + model.fan.view(1, PATH_K, 1)
-            tgt = torch.stack([tgt_x, tgt_y], dim=-1)
+            if hasattr(model, 'fan'):
+                # Fan set-prediction: each candidate targets expert.y + fan[k].
+                tgt_x = target[..., 0].unsqueeze(1).expand(-1, PATH_K, -1)
+                tgt_y = target[..., 1].unsqueeze(1) + model.fan.view(1, PATH_K, 1)
+                tgt = torch.stack([tgt_x, tgt_y], dim=-1)
+            else:
+                # No-fan (attnseq): every candidate targets the expert directly; the
+                # K learned seeds supply diversity without shifting the route.
+                tgt = target.unsqueeze(1).expand(-1, PATH_K, -1, -1)
             loss = ((out - tgt) ** 2).mean()
             loss = loss + footprint * _footprint_penalty(
                 out, costmap, inflate_cells, blur_sigma)
