@@ -6,6 +6,14 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
 ## [Unreleased]
 
+### Added
+- **Viewer-style GIF of the demo MCAP in the README** (`tools/mcap_view_gif.py` →
+  `docs/mcap_view.gif`). A GUI viewer can't be screen-recorded in the dev sandbox
+  (headless), so this renders the *actual messages* in `docs/mode_b_demo.mcap`
+  (`/local_costmap`, `/path_best`, `/candidates_*`, `/goal_pose`) in a dark
+  Lichtblick / Foxglove-style top-down — an honest render of the file you open in
+  the viewer, not a screenshot.
+
 ## [0.11.0] - 2026-06-06
 
 Theme: **the Mode B transformer threads off-centre *and* dead-ahead gaps, plus
