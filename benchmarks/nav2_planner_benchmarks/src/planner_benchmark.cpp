@@ -168,7 +168,8 @@ int main(int argc, char ** argv)
         rclcpp::Parameter("model_path", learned_model),
         rclcpp::Parameter("provide_costmap", true)}},
     {"Diffusion (Mode B, transformer)", "nav2_diffusion_global_planner::DiffusionGlobalPlanner",
-      "generative transformer + costmap (footprint-aware; threads off-centre gap)",
+      "generative transformer + costmap (footprint-aware; threads off-centre + "
+      "dead-ahead gaps)",
       {rclcpp::Parameter("model_plugin", std::string("nav2_diffusion_onnx::OnnxPathModel")),
         rclcpp::Parameter("model_path", transformer_model),
         rclcpp::Parameter("provide_costmap", true)}},
@@ -264,17 +265,18 @@ int main(int argc, char ** argv)
     "(*centred gap*, *narrow gap*, *double gate*) and clear *side obstacle*, but their "
     "16-d CNN embedding can only pick a free *side* — it cannot localize a slot that is "
     "swung off-axis, so they fail *off-centre gap* and *far off-centre gap*. The "
-    "transformer is the mirror image: attention over explicit costmap tokens lets it "
-    "*aim* at an off-axis slot, and a **differentiable footprint-clearance loss** pulls "
-    "each proposal's wall crossing into the free slot with margin — so it is the only "
-    "pure-generative variant that **threads the footprint-validated *off-centre gap*** "
-    "(and even *far off-centre gap*, where the wall sits 3 m forward — the threading is "
-    "not tightly bounded to the training span). That aim is a **specialization, not a "
-    "strict win**: the off-centre-trained transformer *over-aims* and now **misses the "
-    "centred and narrow on-line gaps** that flow and recurrent thread trivially — a "
-    "real trade-off, documented honestly in docs/generative_limits.md. No pure-"
-    "generative variant clears the S-shaped *slalom* (two staggered walls); that still "
-    "needs the hybrid. The **hybrid** "
+    "transformer goes further: attention over explicit costmap tokens lets it *aim* at "
+    "an off-axis slot, and a **differentiable footprint-clearance loss** pulls each "
+    "proposal's wall crossing into the free slot with margin — so it **threads the "
+    "footprint-validated *off-centre gap*** (the documented ceiling). An earlier small "
+    "transformer over-aimed and missed the dead-ahead gaps, a real trade-off; **raising "
+    "its capacity (and adding dead-ahead training samples) closed it** — this model now "
+    "threads **both** the off-centre gap **and** the *centred*/*narrow*/*double gate* "
+    "dead-ahead gaps, plus *side obstacle*. The remaining bound is the *far off-centre "
+    "gap* (the same off-axis slot pushed ~3 m forward), which this model no longer "
+    "reaches — capacity buys breadth but not the far-forward variant (see "
+    "docs/generative_limits.md). No pure-generative variant clears the S-shaped "
+    "*slalom* (two staggered walls); that still needs the hybrid. The **hybrid** "
     "variant "
     "keeps the learned proposal but adds a classical (JPS) fallback: when no "
     "proposal threads the map it hands off to a complete search, so it solves every "

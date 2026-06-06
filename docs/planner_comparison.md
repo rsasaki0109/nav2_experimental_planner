@@ -14,14 +14,14 @@ Planners (all `nav2_core::GlobalPlanner` plugins absent from upstream Nav2 — e
 - **Visibility graph** — geometric
 - **Diffusion (Mode B, analytic)** — generative fan (propose + validate)
 - **Diffusion (Mode B, learned)** — generative flow + costmap (propose + validate)
-- **Diffusion (Mode B, transformer)** — generative transformer + costmap (footprint-aware; threads off-centre gap)
+- **Diffusion (Mode B, transformer)** — generative transformer + costmap (footprint-aware; threads off-centre + dead-ahead gaps)
 - **Diffusion (Mode B, recurrent)** — generative GRU rollout + costmap (fanned proposals)
 - **Diffusion (Mode B, hybrid)** — generative propose + classical (JPS) fallback
 - **Diffusion (Mode B, guided)** — generative-guided complete A* (tightly coupled)
 
 > D\* Lite caches its goal-rooted search across calls, so its median reflects warm incremental replans (the first cold plan is slower). The others replan from scratch each call.
 
-> **Diffusion (Mode B)** is the generative planner — a model *proposes* candidate paths and the deterministic validity layer *disposes* of colliding ones, keeping the shortest survivor. Six variants run here. **analytic** uses the built-in `FanPathModel` (a symmetric bowed fan, no ONNX); **learned (flow)** loads the curated costmap-conditioned flow model from `model_zoo` via `OnnxPathModel` (real ONNX inference); **learned (transformer)** loads the transformer Mode B model (attention over costmap tokens); **learned (recurrent)** loads the GRU-rollout Mode B model (a third family that emits each path one waypoint at a time). All are pure generative, so unlike the search planners they are not complete: if no proposal threads the gap they report no path. The three learned families split the scenarios along a clear axis. The flow and recurrent models read the costmap and bias proposals to the open side: they thread every gap that sits **dead ahead** (*centred gap*, *narrow gap*, *double gate*) and clear *side obstacle*, but their 16-d CNN embedding can only pick a free *side* — it cannot localize a slot that is swung off-axis, so they fail *off-centre gap* and *far off-centre gap*. The transformer is the mirror image: attention over explicit costmap tokens lets it *aim* at an off-axis slot, and a **differentiable footprint-clearance loss** pulls each proposal's wall crossing into the free slot with margin — so it is the only pure-generative variant that **threads the footprint-validated *off-centre gap*** (and even *far off-centre gap*, where the wall sits 3 m forward — the threading is not tightly bounded to the training span). That aim is a **specialization, not a strict win**: the off-centre-trained transformer *over-aims* and now **misses the centred and narrow on-line gaps** that flow and recurrent thread trivially — a real trade-off, documented honestly in docs/generative_limits.md. No pure-generative variant clears the S-shaped *slalom* (two staggered walls); that still needs the hybrid. The **hybrid** variant keeps the learned proposal but adds a classical (JPS) fallback: when no proposal threads the map it hands off to a complete search, so it solves every scenario while still using the fast generative path on the easy ones. This is the propose/dispose split taken one step further — learned proposes, classical search disposes. The **hybrid (guided)** variant couples them tightly: it always runs a complete A* but discounts cell costs near the valid proposals, so the learned model *shapes* every route while the search guarantees completeness — note its cell-resolution pose counts even on easy maps, where the fallback hybrid instead returns the 12-pose generative path (see docs/generative_limits.md).
+> **Diffusion (Mode B)** is the generative planner — a model *proposes* candidate paths and the deterministic validity layer *disposes* of colliding ones, keeping the shortest survivor. Six variants run here. **analytic** uses the built-in `FanPathModel` (a symmetric bowed fan, no ONNX); **learned (flow)** loads the curated costmap-conditioned flow model from `model_zoo` via `OnnxPathModel` (real ONNX inference); **learned (transformer)** loads the transformer Mode B model (attention over costmap tokens); **learned (recurrent)** loads the GRU-rollout Mode B model (a third family that emits each path one waypoint at a time). All are pure generative, so unlike the search planners they are not complete: if no proposal threads the gap they report no path. The three learned families split the scenarios along a clear axis. The flow and recurrent models read the costmap and bias proposals to the open side: they thread every gap that sits **dead ahead** (*centred gap*, *narrow gap*, *double gate*) and clear *side obstacle*, but their 16-d CNN embedding can only pick a free *side* — it cannot localize a slot that is swung off-axis, so they fail *off-centre gap* and *far off-centre gap*. The transformer goes further: attention over explicit costmap tokens lets it *aim* at an off-axis slot, and a **differentiable footprint-clearance loss** pulls each proposal's wall crossing into the free slot with margin — so it **threads the footprint-validated *off-centre gap*** (the documented ceiling). An earlier small transformer over-aimed and missed the dead-ahead gaps, a real trade-off; **raising its capacity (and adding dead-ahead training samples) closed it** — this model now threads **both** the off-centre gap **and** the *centred*/*narrow*/*double gate* dead-ahead gaps, plus *side obstacle*. The remaining bound is the *far off-centre gap* (the same off-axis slot pushed ~3 m forward), which this model no longer reaches — capacity buys breadth but not the far-forward variant (see docs/generative_limits.md). No pure-generative variant clears the S-shaped *slalom* (two staggered walls); that still needs the hybrid. The **hybrid** variant keeps the learned proposal but adds a classical (JPS) fallback: when no proposal threads the map it hands off to a complete search, so it solves every scenario while still using the fast generative path on the easy ones. This is the propose/dispose split taken one step further — learned proposes, classical search disposes. The **hybrid (guided)** variant couples them tightly: it always runs a complete A* but discounts cell costs near the valid proposals, so the learned model *shapes* every route while the search guarantees completeness — note its cell-resolution pose counts even on easy maps, where the fallback hybrid instead returns the 12-pose generative path (see docs/generative_limits.md).
 
 ## Scenario: clear
 
@@ -29,20 +29,20 @@ Empty 6x6 m map, off-axis goal. Start (1, 1) -> goal (5, 5).
 
 | Planner | Family | Success | Path length [m] | Poses | Median time [ms] |
 |---|---|:-:|--:|--:|--:|
-| RRT* | sampling (optimal) | yes | 5.658 | 10 | 721.898 |
+| RRT* | sampling (optimal) | yes | 5.658 | 10 | 1223.537 |
 | RRT-Connect | sampling (bidirectional) | yes | 5.657 | 13 | 0.038 |
-| PRM | sampling (roadmap) | yes | 6.175 | 17 | 28.627 |
-| D* Lite | incremental search | yes | 5.657 | 81 | 0.512 |
-| JPS | grid A* speed-up | yes | 5.657 | 81 | 0.762 |
-| Lazy Theta* | any-angle | yes | 5.657 | 115 | 0.656 |
-| ARA* | anytime | yes | 5.657 | 81 | 2.153 |
-| Visibility graph | geometric | yes | 5.657 | 115 | 0.875 |
-| Diffusion (Mode B, analytic) | generative fan (propose + validate) | yes | 5.657 | 40 | 0.138 |
-| Diffusion (Mode B, learned) | generative flow + costmap (propose + validate) | yes | 5.669 | 12 | 0.206 |
-| Diffusion (Mode B, transformer) | generative transformer + costmap (footprint-aware; threads off-centre gap) | yes | 5.658 | 12 | 0.138 |
-| Diffusion (Mode B, recurrent) | generative GRU rollout + costmap (fanned proposals) | yes | 5.657 | 12 | 1.425 |
-| Diffusion (Mode B, hybrid) | generative propose + classical (JPS) fallback | yes | 5.669 | 12 | 0.336 |
-| Diffusion (Mode B, guided) | generative-guided complete A* (tightly coupled) | yes | 5.657 | 81 | 0.585 |
+| PRM | sampling (roadmap) | yes | 6.175 | 17 | 69.966 |
+| D* Lite | incremental search | yes | 5.657 | 81 | 0.528 |
+| JPS | grid A* speed-up | yes | 5.657 | 81 | 0.804 |
+| Lazy Theta* | any-angle | yes | 5.657 | 115 | 0.685 |
+| ARA* | anytime | yes | 5.657 | 81 | 2.222 |
+| Visibility graph | geometric | yes | 5.657 | 115 | 0.909 |
+| Diffusion (Mode B, analytic) | generative fan (propose + validate) | yes | 5.657 | 40 | 0.381 |
+| Diffusion (Mode B, learned) | generative flow + costmap (propose + validate) | yes | 5.669 | 12 | 0.581 |
+| Diffusion (Mode B, transformer) | generative transformer + costmap (footprint-aware; threads off-centre + dead-ahead gaps) | yes | 5.658 | 12 | 0.586 |
+| Diffusion (Mode B, recurrent) | generative GRU rollout + costmap (fanned proposals) | yes | 5.657 | 12 | 6.923 |
+| Diffusion (Mode B, hybrid) | generative propose + classical (JPS) fallback | yes | 5.669 | 12 | 0.952 |
+| Diffusion (Mode B, guided) | generative-guided complete A* (tightly coupled) | yes | 5.657 | 81 | 2.837 |
 
 ## Scenario: centred gap
 
@@ -50,20 +50,20 @@ Vertical wall with a gap centred on the straight line; the gap sits dead ahead s
 
 | Planner | Family | Success | Path length [m] | Poses | Median time [ms] |
 |---|---|:-:|--:|--:|--:|
-| RRT* | sampling (optimal) | yes | 4.000 | 9 | 677.256 |
+| RRT* | sampling (optimal) | yes | 4.000 | 9 | 1291.958 |
 | RRT-Connect | sampling (bidirectional) | yes | 4.064 | 10 | 0.035 |
-| PRM | sampling (roadmap) | yes | 4.200 | 13 | 27.566 |
-| D* Lite | incremental search | yes | 4.014 | 81 | 0.507 |
-| JPS | grid A* speed-up | yes | 4.014 | 81 | 0.356 |
-| Lazy Theta* | any-angle | yes | 4.000 | 81 | 0.516 |
-| ARA* | anytime | yes | 4.014 | 81 | 1.457 |
-| Visibility graph | geometric | yes | 4.000 | 81 | 0.842 |
-| Diffusion (Mode B, analytic) | generative fan (propose + validate) | yes | 4.000 | 40 | 0.100 |
-| Diffusion (Mode B, learned) | generative flow + costmap (propose + validate) | yes | 4.011 | 12 | 0.329 |
-| Diffusion (Mode B, transformer) | generative transformer + costmap (footprint-aware; threads off-centre gap) | no path | — | — | — |
-| Diffusion (Mode B, recurrent) | generative GRU rollout + costmap (fanned proposals) | yes | 4.048 | 12 | 0.799 |
-| Diffusion (Mode B, hybrid) | generative propose + classical (JPS) fallback | yes | 4.011 | 12 | 0.336 |
-| Diffusion (Mode B, guided) | generative-guided complete A* (tightly coupled) | yes | 4.014 | 81 | 0.318 |
+| PRM | sampling (roadmap) | yes | 4.200 | 13 | 42.002 |
+| D* Lite | incremental search | yes | 4.014 | 81 | 0.512 |
+| JPS | grid A* speed-up | yes | 4.014 | 81 | 0.378 |
+| Lazy Theta* | any-angle | yes | 4.000 | 81 | 0.512 |
+| ARA* | anytime | yes | 4.014 | 81 | 1.539 |
+| Visibility graph | geometric | yes | 4.000 | 81 | 0.969 |
+| Diffusion (Mode B, analytic) | generative fan (propose + validate) | yes | 4.000 | 40 | 0.327 |
+| Diffusion (Mode B, learned) | generative flow + costmap (propose + validate) | yes | 4.011 | 12 | 0.509 |
+| Diffusion (Mode B, transformer) | generative transformer + costmap (footprint-aware; threads off-centre + dead-ahead gaps) | yes | 4.031 | 12 | 0.591 |
+| Diffusion (Mode B, recurrent) | generative GRU rollout + costmap (fanned proposals) | yes | 4.048 | 12 | 1.886 |
+| Diffusion (Mode B, hybrid) | generative propose + classical (JPS) fallback | yes | 4.011 | 12 | 0.530 |
+| Diffusion (Mode B, guided) | generative-guided complete A* (tightly coupled) | yes | 4.014 | 81 | 1.639 |
 
 ## Scenario: narrow gap
 
@@ -71,20 +71,20 @@ Vertical wall with a tight gap centred on the line; halves the clearance of *cen
 
 | Planner | Family | Success | Path length [m] | Poses | Median time [ms] |
 |---|---|:-:|--:|--:|--:|
-| RRT* | sampling (optimal) | yes | 4.000 | 9 | 503.636 |
-| RRT-Connect | sampling (bidirectional) | yes | 4.064 | 10 | 0.023 |
-| PRM | sampling (roadmap) | yes | 4.200 | 13 | 20.069 |
-| D* Lite | incremental search | yes | 4.014 | 81 | 0.385 |
-| JPS | grid A* speed-up | yes | 4.014 | 81 | 0.219 |
-| Lazy Theta* | any-angle | yes | 4.000 | 81 | 0.344 |
-| ARA* | anytime | yes | 4.014 | 81 | 0.966 |
-| Visibility graph | geometric | yes | 4.000 | 81 | 0.568 |
-| Diffusion (Mode B, analytic) | generative fan (propose + validate) | yes | 4.000 | 40 | 0.057 |
-| Diffusion (Mode B, learned) | generative flow + costmap (propose + validate) | yes | 4.012 | 12 | 0.238 |
-| Diffusion (Mode B, transformer) | generative transformer + costmap (footprint-aware; threads off-centre gap) | no path | — | — | — |
-| Diffusion (Mode B, recurrent) | generative GRU rollout + costmap (fanned proposals) | yes | 4.081 | 12 | 0.812 |
-| Diffusion (Mode B, hybrid) | generative propose + classical (JPS) fallback | yes | 4.012 | 12 | 0.199 |
-| Diffusion (Mode B, guided) | generative-guided complete A* (tightly coupled) | yes | 4.014 | 81 | 0.342 |
+| RRT* | sampling (optimal) | yes | 4.000 | 9 | 1143.561 |
+| RRT-Connect | sampling (bidirectional) | yes | 4.064 | 10 | 0.036 |
+| PRM | sampling (roadmap) | yes | 4.200 | 13 | 40.760 |
+| D* Lite | incremental search | yes | 4.014 | 81 | 0.524 |
+| JPS | grid A* speed-up | yes | 4.014 | 81 | 0.319 |
+| Lazy Theta* | any-angle | yes | 4.000 | 81 | 0.539 |
+| ARA* | anytime | yes | 4.014 | 81 | 1.479 |
+| Visibility graph | geometric | yes | 4.000 | 81 | 0.847 |
+| Diffusion (Mode B, analytic) | generative fan (propose + validate) | yes | 4.000 | 40 | 0.301 |
+| Diffusion (Mode B, learned) | generative flow + costmap (propose + validate) | yes | 4.012 | 12 | 0.557 |
+| Diffusion (Mode B, transformer) | generative transformer + costmap (footprint-aware; threads off-centre + dead-ahead gaps) | yes | 4.029 | 12 | 0.583 |
+| Diffusion (Mode B, recurrent) | generative GRU rollout + costmap (fanned proposals) | yes | 4.081 | 12 | 2.083 |
+| Diffusion (Mode B, hybrid) | generative propose + classical (JPS) fallback | yes | 4.012 | 12 | 0.565 |
+| Diffusion (Mode B, guided) | generative-guided complete A* (tightly coupled) | yes | 4.014 | 81 | 1.717 |
 
 ## Scenario: off-centre gap
 
@@ -92,20 +92,20 @@ Vertical wall with a gap well off the straight line. Start (1.000, 3.000) -> goa
 
 | Planner | Family | Success | Path length [m] | Poses | Median time [ms] |
 |---|---|:-:|--:|--:|--:|
-| RRT* | sampling (optimal) | yes | 5.084 | 12 | 510.390 |
-| RRT-Connect | sampling (bidirectional) | yes | 6.359 | 14 | 0.102 |
-| PRM | sampling (roadmap) | yes | 5.300 | 14 | 21.064 |
-| D* Lite | incremental search | yes | 5.257 | 81 | 0.355 |
-| JPS | grid A* speed-up | yes | 5.278 | 81 | 0.541 |
-| Lazy Theta* | any-angle | yes | 5.073 | 104 | 5.243 |
-| ARA* | anytime | yes | 5.278 | 81 | 11.712 |
-| Visibility graph | geometric | yes | 5.095 | 105 | 0.614 |
-| Diffusion (Mode B, analytic) | generative fan (propose + validate) | yes | 5.282 | 40 | 0.099 |
+| RRT* | sampling (optimal) | yes | 5.084 | 12 | 793.674 |
+| RRT-Connect | sampling (bidirectional) | yes | 6.359 | 14 | 0.101 |
+| PRM | sampling (roadmap) | yes | 5.300 | 14 | 36.186 |
+| D* Lite | incremental search | yes | 5.257 | 81 | 0.542 |
+| JPS | grid A* speed-up | yes | 5.278 | 81 | 0.818 |
+| Lazy Theta* | any-angle | yes | 5.073 | 104 | 8.561 |
+| ARA* | anytime | yes | 5.278 | 81 | 20.870 |
+| Visibility graph | geometric | yes | 5.095 | 105 | 0.943 |
+| Diffusion (Mode B, analytic) | generative fan (propose + validate) | yes | 5.282 | 40 | 0.326 |
 | Diffusion (Mode B, learned) | generative flow + costmap (propose + validate) | no path | — | — | — |
-| Diffusion (Mode B, transformer) | generative transformer + costmap (footprint-aware; threads off-centre gap) | yes | 5.469 | 12 | 0.142 |
+| Diffusion (Mode B, transformer) | generative transformer + costmap (footprint-aware; threads off-centre + dead-ahead gaps) | yes | 6.082 | 12 | 0.574 |
 | Diffusion (Mode B, recurrent) | generative GRU rollout + costmap (fanned proposals) | no path | — | — | — |
-| Diffusion (Mode B, hybrid) | generative propose + classical (JPS) fallback | yes | 5.278 | 81 | 1.099 |
-| Diffusion (Mode B, guided) | generative-guided complete A* (tightly coupled) | yes | 5.257 | 81 | 0.942 |
+| Diffusion (Mode B, hybrid) | generative propose + classical (JPS) fallback | yes | 5.278 | 81 | 1.401 |
+| Diffusion (Mode B, guided) | generative-guided complete A* (tightly coupled) | yes | 5.257 | 81 | 6.440 |
 
 ## Scenario: far off-centre gap
 
@@ -113,20 +113,20 @@ Same 2 m off-axis gap but pushed toward the goal (world_x 4.0); probes whether g
 
 | Planner | Family | Success | Path length [m] | Poses | Median time [ms] |
 |---|---|:-:|--:|--:|--:|
-| RRT* | sampling (optimal) | yes | 5.284 | 12 | 666.858 |
-| RRT-Connect | sampling (bidirectional) | yes | 6.938 | 16 | 0.114 |
-| PRM | sampling (roadmap) | yes | 5.540 | 17 | 28.139 |
-| D* Lite | incremental search | yes | 5.638 | 94 | 0.534 |
-| JPS | grid A* speed-up | yes | 5.659 | 94 | 0.749 |
-| Lazy Theta* | any-angle | yes | 5.254 | 107 | 14.483 |
-| ARA* | anytime | yes | 5.659 | 94 | 31.460 |
-| Visibility graph | geometric | yes | 5.288 | 108 | 0.884 |
+| RRT* | sampling (optimal) | yes | 5.284 | 12 | 777.995 |
+| RRT-Connect | sampling (bidirectional) | yes | 6.938 | 16 | 0.121 |
+| PRM | sampling (roadmap) | yes | 5.540 | 17 | 33.076 |
+| D* Lite | incremental search | yes | 5.638 | 94 | 0.573 |
+| JPS | grid A* speed-up | yes | 5.659 | 94 | 0.801 |
+| Lazy Theta* | any-angle | yes | 5.254 | 107 | 14.596 |
+| ARA* | anytime | yes | 5.659 | 94 | 37.247 |
+| Visibility graph | geometric | yes | 5.288 | 108 | 0.927 |
 | Diffusion (Mode B, analytic) | generative fan (propose + validate) | no path | — | — | — |
 | Diffusion (Mode B, learned) | generative flow + costmap (propose + validate) | no path | — | — | — |
-| Diffusion (Mode B, transformer) | generative transformer + costmap (footprint-aware; threads off-centre gap) | yes | 5.591 | 12 | 0.200 |
+| Diffusion (Mode B, transformer) | generative transformer + costmap (footprint-aware; threads off-centre + dead-ahead gaps) | no path | — | — | — |
 | Diffusion (Mode B, recurrent) | generative GRU rollout + costmap (fanned proposals) | no path | — | — | — |
-| Diffusion (Mode B, hybrid) | generative propose + classical (JPS) fallback | yes | 5.659 | 94 | 1.096 |
-| Diffusion (Mode B, guided) | generative-guided complete A* (tightly coupled) | yes | 5.667 | 95 | 1.625 |
+| Diffusion (Mode B, hybrid) | generative propose + classical (JPS) fallback | yes | 5.659 | 94 | 1.340 |
+| Diffusion (Mode B, guided) | generative-guided complete A* (tightly coupled) | yes | 5.667 | 95 | 12.607 |
 
 ## Scenario: double gate
 
@@ -134,20 +134,20 @@ Two vertical walls in series, both gaps on the straight line; two sequential cro
 
 | Planner | Family | Success | Path length [m] | Poses | Median time [ms] |
 |---|---|:-:|--:|--:|--:|
-| RRT* | sampling (optimal) | yes | 4.000 | 9 | 650.525 |
-| RRT-Connect | sampling (bidirectional) | yes | 4.064 | 10 | 0.033 |
-| PRM | sampling (roadmap) | yes | 4.179 | 13 | 27.747 |
-| D* Lite | incremental search | yes | 4.014 | 81 | 0.508 |
-| JPS | grid A* speed-up | yes | 4.014 | 81 | 0.386 |
-| Lazy Theta* | any-angle | yes | 4.000 | 81 | 0.517 |
-| ARA* | anytime | yes | 4.014 | 81 | 1.506 |
-| Visibility graph | geometric | yes | 4.000 | 81 | 0.908 |
-| Diffusion (Mode B, analytic) | generative fan (propose + validate) | yes | 4.000 | 40 | 0.097 |
-| Diffusion (Mode B, learned) | generative flow + costmap (propose + validate) | yes | 4.059 | 12 | 0.333 |
-| Diffusion (Mode B, transformer) | generative transformer + costmap (footprint-aware; threads off-centre gap) | yes | 4.297 | 12 | 0.206 |
-| Diffusion (Mode B, recurrent) | generative GRU rollout + costmap (fanned proposals) | yes | 4.253 | 12 | 0.824 |
-| Diffusion (Mode B, hybrid) | generative propose + classical (JPS) fallback | yes | 4.059 | 12 | 0.202 |
-| Diffusion (Mode B, guided) | generative-guided complete A* (tightly coupled) | yes | 4.014 | 81 | 0.310 |
+| RRT* | sampling (optimal) | yes | 4.000 | 9 | 745.675 |
+| RRT-Connect | sampling (bidirectional) | yes | 4.064 | 10 | 0.036 |
+| PRM | sampling (roadmap) | yes | 4.179 | 13 | 30.423 |
+| D* Lite | incremental search | yes | 4.014 | 81 | 0.506 |
+| JPS | grid A* speed-up | yes | 4.014 | 81 | 0.393 |
+| Lazy Theta* | any-angle | yes | 4.000 | 81 | 0.484 |
+| ARA* | anytime | yes | 4.014 | 81 | 1.427 |
+| Visibility graph | geometric | yes | 4.000 | 81 | 0.966 |
+| Diffusion (Mode B, analytic) | generative fan (propose + validate) | yes | 4.000 | 40 | 0.312 |
+| Diffusion (Mode B, learned) | generative flow + costmap (propose + validate) | yes | 4.059 | 12 | 0.670 |
+| Diffusion (Mode B, transformer) | generative transformer + costmap (footprint-aware; threads off-centre + dead-ahead gaps) | yes | 4.123 | 12 | 0.551 |
+| Diffusion (Mode B, recurrent) | generative GRU rollout + costmap (fanned proposals) | yes | 4.253 | 12 | 2.302 |
+| Diffusion (Mode B, hybrid) | generative propose + classical (JPS) fallback | yes | 4.059 | 12 | 0.651 |
+| Diffusion (Mode B, guided) | generative-guided complete A* (tightly coupled) | yes | 4.014 | 81 | 1.651 |
 
 ## Scenario: slalom
 
@@ -155,20 +155,20 @@ Two staggered walls (gap low then high) forcing an S-shaped detour. Start (1.000
 
 | Planner | Family | Success | Path length [m] | Poses | Median time [ms] |
 |---|---|:-:|--:|--:|--:|
-| RRT* | sampling (optimal) | yes | 6.615 | 13 | 461.264 |
-| RRT-Connect | sampling (bidirectional) | yes | 10.159 | 22 | 0.420 |
-| PRM | sampling (roadmap) | yes | 8.058 | 23 | 19.629 |
-| D* Lite | incremental search | yes | 6.785 | 107 | 0.434 |
-| JPS | grid A* speed-up | yes | 6.829 | 107 | 0.523 |
-| Lazy Theta* | any-angle | yes | 6.534 | 137 | 12.785 |
-| ARA* | anytime | yes | 6.808 | 107 | 24.036 |
-| Visibility graph | geometric | yes | 6.610 | 136 | 0.613 |
+| RRT* | sampling (optimal) | yes | 6.615 | 13 | 732.435 |
+| RRT-Connect | sampling (bidirectional) | yes | 10.159 | 22 | 0.711 |
+| PRM | sampling (roadmap) | yes | 8.058 | 23 | 31.656 |
+| D* Lite | incremental search | yes | 6.785 | 107 | 0.577 |
+| JPS | grid A* speed-up | yes | 6.829 | 107 | 0.802 |
+| Lazy Theta* | any-angle | yes | 6.534 | 137 | 19.608 |
+| ARA* | anytime | yes | 6.808 | 107 | 39.148 |
+| Visibility graph | geometric | yes | 6.610 | 136 | 0.982 |
 | Diffusion (Mode B, analytic) | generative fan (propose + validate) | no path | — | — | — |
 | Diffusion (Mode B, learned) | generative flow + costmap (propose + validate) | no path | — | — | — |
-| Diffusion (Mode B, transformer) | generative transformer + costmap (footprint-aware; threads off-centre gap) | no path | — | — | — |
+| Diffusion (Mode B, transformer) | generative transformer + costmap (footprint-aware; threads off-centre + dead-ahead gaps) | no path | — | — | — |
 | Diffusion (Mode B, recurrent) | generative GRU rollout + costmap (fanned proposals) | no path | — | — | — |
-| Diffusion (Mode B, hybrid) | generative propose + classical (JPS) fallback | yes | 6.829 | 107 | 0.745 |
-| Diffusion (Mode B, guided) | generative-guided complete A* (tightly coupled) | yes | 6.925 | 111 | 1.572 |
+| Diffusion (Mode B, hybrid) | generative propose + classical (JPS) fallback | yes | 6.829 | 107 | 1.382 |
+| Diffusion (Mode B, guided) | generative-guided complete A* (tightly coupled) | yes | 6.925 | 111 | 14.954 |
 
 ## Scenario: side obstacle
 
@@ -176,19 +176,19 @@ One-sided block across the straight line; a small detour to the open side clears
 
 | Planner | Family | Success | Path length [m] | Poses | Median time [ms] |
 |---|---|:-:|--:|--:|--:|
-| RRT* | sampling (optimal) | yes | 4.028 | 9 | 501.072 |
-| RRT-Connect | sampling (bidirectional) | yes | 5.395 | 12 | 0.038 |
-| PRM | sampling (roadmap) | yes | 4.217 | 12 | 20.549 |
-| D* Lite | incremental search | yes | 4.180 | 81 | 0.361 |
-| JPS | grid A* speed-up | yes | 4.201 | 81 | 0.526 |
-| Lazy Theta* | any-angle | yes | 4.027 | 82 | 0.943 |
-| ARA* | anytime | yes | 4.201 | 81 | 2.023 |
-| Visibility graph | geometric | yes | 4.029 | 82 | 0.556 |
-| Diffusion (Mode B, analytic) | generative fan (propose + validate) | yes | 4.097 | 40 | 0.066 |
-| Diffusion (Mode B, learned) | generative flow + costmap (propose + validate) | yes | 4.076 | 12 | 0.208 |
-| Diffusion (Mode B, transformer) | generative transformer + costmap (footprint-aware; threads off-centre gap) | yes | 4.465 | 12 | 0.124 |
-| Diffusion (Mode B, recurrent) | generative GRU rollout + costmap (fanned proposals) | yes | 4.246 | 12 | 0.813 |
-| Diffusion (Mode B, hybrid) | generative propose + classical (JPS) fallback | yes | 4.076 | 12 | 0.331 |
-| Diffusion (Mode B, guided) | generative-guided complete A* (tightly coupled) | yes | 4.222 | 81 | 0.502 |
+| RRT* | sampling (optimal) | yes | 4.028 | 9 | 827.944 |
+| RRT-Connect | sampling (bidirectional) | yes | 5.395 | 12 | 0.057 |
+| PRM | sampling (roadmap) | yes | 4.217 | 12 | 29.153 |
+| D* Lite | incremental search | yes | 4.180 | 81 | 0.511 |
+| JPS | grid A* speed-up | yes | 4.201 | 81 | 0.803 |
+| Lazy Theta* | any-angle | yes | 4.027 | 82 | 1.383 |
+| ARA* | anytime | yes | 4.201 | 81 | 3.322 |
+| Visibility graph | geometric | yes | 4.029 | 82 | 0.877 |
+| Diffusion (Mode B, analytic) | generative fan (propose + validate) | yes | 4.097 | 40 | 0.329 |
+| Diffusion (Mode B, learned) | generative flow + costmap (propose + validate) | yes | 4.076 | 12 | 0.508 |
+| Diffusion (Mode B, transformer) | generative transformer + costmap (footprint-aware; threads off-centre + dead-ahead gaps) | yes | 4.872 | 12 | 0.559 |
+| Diffusion (Mode B, recurrent) | generative GRU rollout + costmap (fanned proposals) | yes | 4.246 | 12 | 1.756 |
+| Diffusion (Mode B, hybrid) | generative propose + classical (JPS) fallback | yes | 4.076 | 12 | 0.574 |
+| Diffusion (Mode B, guided) | generative-guided complete A* (tightly coupled) | yes | 4.222 | 81 | 1.791 |
 
 _Path length is the sum of consecutive pose distances; lower is shorter (not always better — sampling planners trade optimality for speed, ARA\* trades it for an anytime bound). Pose count reflects densification granularity. "no path" means the planner raised an exception (e.g. the sampling budget did not connect start and goal within the scenario)._

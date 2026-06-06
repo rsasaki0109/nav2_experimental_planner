@@ -19,16 +19,16 @@ curated model metadata, not necessarily large binaries。
 
 > **`diffusion_global_costmap_transformer_v0` の位置づけ（正直なスコープ）**:
 > `planner_benchmark`（8 コース）上で **footprint 検証付き *off-centre gap* を純生成で貫通する初の
-> Mode B モデル**（*off-centre gap* = yes / ~5.5 m / 12 pose / fallback なし、実 C++ で検証）。
-> 壁をゴール寄りに押した *far off-centre gap*（前方約 3 m）も貫通し、*clear* / *side obstacle* /
-> 直進 2 連の *double gate* も維持。flow / recurrent（16 次元 CNN embedding）は off-axis gap では
-> 依然 *no path*。効くのは2点の合わせ技: ① token attention で off-centre slot に提案を**向ける**
-> （A/B + C++ テスト `CuratedZooTransformerAimsAtOffCentreSlot`）、② **微分可能 footprint
-> クリアランス損失**（`export.py` の `footprint` / `blur_sigma`）で提案を **validator が通す形に
-> 最適化**し、壁横断をスロット中心へ余裕込みで引き込む。**正直なトレードオフ**: off-axis 特化は
-> 上位互換ではなく、**直進の隙間（*centred gap* / *narrow gap*）を取りこぼす**（flow / recurrent は
-> 通す）— 両者は相補的。**残る天井**: *slalom*（S 字二段壁）は純生成では *no path*。完全性保証は
-> 引き続き **hybrid プランナ**。詳細は [model_card](diffusion_global_transformer/model_card.md) と
+> Mode B モデル**（fallback なし、実 C++ で検証）。さらに **dead-ahead の隙間（*centred gap* /
+> *narrow gap* / 直進 2 連の *double gate*）も同時に貫通**し、*clear* / *side obstacle* も維持。
+> flow / recurrent（16 次元 CNN embedding）は off-axis gap では *no path*。効くのは2点の合わせ技:
+> ① token attention で off-centre slot に提案を**向ける**（A/B + C++ テスト
+> `CuratedZooTransformerAimsAtOffCentreSlot`）、② **微分可能 footprint クリアランス損失**
+> （`export.py` の `footprint` / `blur_sigma`）で提案を **validator が通す形に最適化**。小容量では
+> off-centre と dead-ahead がトレードオフだったが、**容量増（dim64/h8/l3）+ centred tri-mix で解消**
+> （詳細は generative_limits）。**残る bound**: *far off-centre gap*（off-axis スロット前方約 3 m）と
+> *slalom* は純生成では *no path*。完全性保証は引き続き **hybrid プランナ**。詳細は
+> [model_card](diffusion_global_transformer/model_card.md) と
 > [../docs/generative_limits.md](../docs/generative_limits.md)。
 
 > **`diffusion_global_costmap_recurrent_v0` の位置づけ（正直なスコープ）**:

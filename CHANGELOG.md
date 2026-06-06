@@ -6,6 +6,22 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
 ## [Unreleased]
 
+### Changed
+- **Closed the transformer's gap trade-off by raising model capacity — the shipped
+  Mode B transformer now threads BOTH the off-centre gap AND the dead-ahead gaps.**
+  Following the negative result below (a centred rebalance only *shifted* the
+  trade-off at the old small capacity), bumped the Mode B path transformer to
+  dim 64 / 8 heads / 3 decoder blocks (from 32 / 4 / 2) and tri-mixed dead-ahead
+  (`centred`) samples into `'both'`, then retrained. Verified in the real C++
+  `planner_benchmark` (8 courses): `Diffusion (Mode B, transformer)` now solves
+  *off-centre gap* **and** *centred* / *narrow* / *double gate* (plus *clear* /
+  *side obstacle*) — the over-aim trade-off is gone. The remaining bound is the
+  *far off-centre gap* (off-axis slot ~3 m forward), now *no path*; *slalom* stays
+  hybrid-only. Re-exported the model (new checksum), updated `manifest.yaml`,
+  `model_card.md`, `model_zoo/README.md`, `docs/generative_limits.md`,
+  `README.md`, the `planner_benchmark` narrative, and regenerated
+  `docs/planner_comparison.md`. onnx C++ gtests 10/10 (incl. the aim test).
+
 ### Added
 - **`make_costmap_path_centred_gap_dataset` + a `'centred'` path dataset option**
   (dead-ahead slot, straight-through expert; includes narrow on-line slots), with a

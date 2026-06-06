@@ -33,9 +33,11 @@ architecture:
   note: >
     A strided conv tokenizes the 24x24 goal-aligned patch into spatial tokens (with
     learned positional embeddings); a context token is prepended. K=5 learned query
-    tokens cross-attend to that memory through 2 multi-head decoder blocks and each
-    decodes a full start->goal path. Attention over explicit costmap tokens — not a
-    16-d CNN embedding — is what lets it localize and route through an off-centre gap.
+    tokens cross-attend to that memory through 3 multi-head decoder blocks (model dim
+    64, 8 heads) and each decodes a full start->goal path. Attention over explicit
+    costmap tokens — not a 16-d CNN embedding — is what lets it localize and route
+    through an off-centre gap; the dim-64 / 8-head / 3-block capacity (up from
+    dim 32 / 4 heads / 2 blocks) is what lets it thread the dead-ahead gaps too.
 
 training_data:
   datasets:
@@ -58,35 +60,34 @@ benchmark_results:
   costmap_side_selection: true     # one-sided obstacle -> candidates veer to the free side
   off_centre_slot_aiming: true     # wall+slot at +/-2 m -> candidates' lateral at the wall ~= slot offset
   passes_footprint_validated_gap: true   # off-centre gap: a valid generative path threads the 1 m slot
-  passes_far_off_centre_gap: true  # off-centre slot with the wall pushed ~3 m forward also threads
+  passes_centred_and_narrow_gaps: true   # dead-ahead slots (centred / narrow) — gained with more capacity
+  passes_double_gate: true         # two sequential on-line gaps
+  passes_far_off_centre_gap: false # the ~3 m-forward off-axis variant is the remaining bound
   exceeds_flow_and_recurrent_off_axis: true  # flow / recurrent (16-d CNN embedding) report no path on off-centre gaps
-  misses_centred_on_line_gap: true # TRADE-OFF: over-aimed model fails centred/narrow dead-ahead gaps that flow/recurrent thread
   note: >
     On the footprint-validated planner_benchmark (8 courses) this model THREADS the
     off-centre gap as a pure-generative planner — the first Mode B model here to do so
-    without a classical fallback — AND the far off-centre gap (wall pushed ~3 m forward),
-    plus 'clear', 'side obstacle', and the on-line 'double gate', where the flow and
-    recurrent Mode B models report no path on the off-axis gaps. Two ingredients combine:
-    (1) attention over explicit costmap tokens lets it AIM proposals at the off-centre
-    slot (the flow / recurrent 16-d CNN embedding cannot); (2) a differentiable
-    footprint-clearance loss (FOOTPRINT / BLUR_SIGMA in export.py) optimizes the proposals
-    to be what the validity layer accepts, pulling each candidate's wall crossing into the
-    free slot with margin so the validator keeps a survivor. HONEST TRADE-OFF surfaced by
-    the 8-course sweep: this off-centre specialization is NOT a strict upgrade — the
-    over-aimed model reports no path on 'centred gap' / 'narrow gap' (slots dead ahead on
-    the straight line) that the flow and recurrent siblings thread trivially; the two
-    families are complementary, not ordered. The S-shaped 'slalom' (two staggered walls)
-    is still no-path for pure generative; the hybrid planner remains the completeness
-    guarantee there. (An earlier claim that gap threading was bounded to wall
-    forward-distances near the ~2 m training span is RETRACTED: the far off-centre gap
-    threads.) See docs/generative_limits.md.
+    without a classical fallback — AND the dead-ahead gaps ('centred gap', 'narrow gap',
+    'double gate'), plus 'clear' and 'side obstacle', where the flow and recurrent Mode B
+    models report no path on the off-axis gaps. Two ingredients combine: (1) attention
+    over explicit costmap tokens lets it AIM proposals at the off-centre slot (the flow /
+    recurrent 16-d CNN embedding cannot); (2) a differentiable footprint-clearance loss
+    (FOOTPRINT / BLUR_SIGMA in export.py) optimizes the proposals to be what the validity
+    layer accepts, pulling each candidate's wall crossing into the free slot with margin.
+    HISTORY: an earlier small transformer (dim 32) over-aimed and missed the dead-ahead
+    gaps — a real trade-off. RAISING CAPACITY (dim 64 / 8 heads / 3 decoder blocks) and
+    adding dead-ahead ('centred') training samples CLOSED it: this model threads both the
+    off-centre and the dead-ahead gaps. The remaining bound is the 'far off-centre gap'
+    (the same off-axis slot pushed ~3 m forward), which this model no longer reaches.
+    The S-shaped 'slalom' is still no-path for pure generative; the hybrid planner remains
+    the completeness guarantee there. See docs/generative_limits.md.
   collision_count: 0               # deterministic validity layer gates all output
 
 limitations:
   - "Synthetic training data only — NOT validated on any real robot or rosbag."
-  - "TRADE-OFF: over-aimed for off-axis slots, so it reports no path on centred/narrow dead-ahead gaps that flow/recurrent thread (the families are complementary)."
-  - "Threads the footprint-validated off-centre gap (and far off-centre gap), but the S-shaped slalom (two staggered walls) is still no-path for pure generative (hybrid solves it)."
-  - "Off-axis slot aiming / threading demonstrated for offsets up to ~2 m within the 24x24 / 6x6 m patch window; threading holds across wall forward-distance (~2-3 m)."
+  - "Threads the off-centre gap AND the dead-ahead gaps (centred / narrow / double gate), but the 'far off-centre gap' (off-axis slot ~3 m forward) is the remaining bound — no path."
+  - "The S-shaped slalom (two staggered walls) is still no-path for pure generative (the hybrid solves it)."
+  - "Off-axis slot aiming / threading demonstrated for offsets up to ~2 m within the 24x24 / 6x6 m patch window."
   - "Research / demonstration model. Do not deploy on hardware; the validity layer is the authority."
 
 license:
@@ -96,12 +97,12 @@ license:
 
 checksum:
   algorithm: sha256
-  value: "d9224283066a08e8ded251667b36556b79f557ef5dbc310e726a6e6e38ddbe6e"
+  value: "c117537b3e85689dffe51ce24288d8693297268017ad445c22a606fb73552587"
   artifact: costmap_transformer.onnx
 
 reproduce:
   command: "PYTHONPATH=../../generative/nav2_diffusion_training python3 export.py  # GPU if available; CUDA_VISIBLE_DEVICES= forces CPU"
   toolchain: "torch 2.10.0+cu128, onnx 1.21.0; trained on CUDA, exported on CPU"
-  hyperparameters: "transformer, dataset 'both' (side + off-centre gap), 240 samples, 2500 epochs, lr 0.01, footprint 3.0, blur_sigma 2.5"
+  hyperparameters: "transformer (dim 64 / 8 heads / 3 blocks), dataset 'both' tri-mix (side + off-centre gap + centred/dead-ahead gap), 240 samples, 2500 epochs, lr 0.01, footprint 3.0, blur_sigma 2.5"
   seed: 0
-  note: "GPU training is not bit-exact run-to-run; the committed artifact threads the off-centre gap in the C++ planner_benchmark (verified). A re-export may vary slightly in which candidates thread but reproduces the capability."
+  note: "GPU training is not bit-exact run-to-run; the committed artifact threads the off-centre AND dead-ahead gaps in the C++ planner_benchmark (verified). A re-export may vary slightly in which candidates thread (off-centre / far off-centre are borderline) but reproduces the capability."

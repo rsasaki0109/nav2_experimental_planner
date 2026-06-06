@@ -12,7 +12,7 @@
 | 学習分布内の patch での**側選択の頑健性** | ✅ できる | 同上 |
 | Mode A: **open での閉ループ goal 到達** | ✅ できる（pure-pursuit 弧 expert で carrot 追従） | v0.6.0 出荷 |
 | Mode B: **off-centre gap の方向検出（スロットを狙う）** | ⚠️ flow/recurrent（CNN）は不可 → ✅ **transformer（attention）は raw 提案でスロット方向を向く** | 下記「追記」参照（A/B + C++ 方向テスト） |
-| Mode B: **off-centre gap を実際に通る（footprint 検証 benchmark）** | ✅ **transformer + footprint-aware 損失で純生成貫通**（far off-centre も貫通／ flow・recurrent は不可）。ただし**特化のトレードオフ**で transformer は直進の隙間（centred/narrow gap）を取りこぼす（flow/recurrent は通す）／ slalom は依然ハイブリッド | 下記「天井突破」「多コース評価」参照（実 C++ benchmark で検証） |
+| Mode B: **off-centre gap を実際に通る（footprint 検証 benchmark）** | ✅ **transformer + footprint-aware 損失で純生成貫通**（flow・recurrent は不可）。当初は off-centre 特化で直進の隙間を取りこぼすトレードオフがあったが、**容量増（dim64/h8/l3）+ centred tri-mix で解消**＝off-centre と dead-ahead（centred/narrow/double）を同時に通す／ far off-centre と slalom は残る bound | 下記「天井突破」「多コース評価 / 容量増で解消」参照（実 C++ benchmark で検証） |
 | Mode A: **障害物のスレッディング（回り込み通過）** | ❌ 学習単体では天井 → ✅ **ハイブリッドで解決** | 下記参照 |
 
 要点: **side-selection と open goal 到達は小型モデルでも実機構で動く**。**off-centre gap（壁のスロット貫通）は、当初は天井だったが、token attention で aim できる transformer に footprint-aware 損失を足すと pure-generative で貫通できるようになった**（後述、実 C++ benchmark で検証）。一方 **slalom（S 字二段壁）と Mode A の obstacle-threading（閉ループ分布シフト）は依然天井**で、小型・合成学習モデル単体では解けない — **classical search / reactive 法が本来勝つ領域**であり、本リポジトリが 8 種の classical planner と 2 種の reactive controller を併載する理由そのもの。そして **ハイブリッド**（generative 提案 + classical fallback）は残る天井も超え、かつ**任意地図での完全性保証**を与える: Mode B の slalom は learned+JPS の hybrid が解く（後述）。
@@ -72,35 +72,30 @@ aim は出るが、これだけでは benchmark の gap は通らなかった（
 
 #### 多コース評価で判明したトレードオフ（2026-06、8 コースに拡張）
 
-`planner_comparison.md` を 4 → 8 コースに拡張し（*centred gap* / *narrow gap* / *far off-centre gap* / *double gate* を追加）、3 生成ファミリの競合範囲を**正直に切り分けた**。当初の予想と異なる発見が 2 点:
+`planner_comparison.md` を 4 → 8 コースに拡張し（*centred gap* / *narrow gap* / *far off-centre gap* / *double gate* を追加）、3 生成ファミリの競合範囲を**正直に切り分けた**。そこで小容量 transformer（dim 32 / 4 heads / 2 blocks）に**トレードオフ**が見つかった: off-centre 特化で **off-centre / far** は通すが、**直線上の隙間（centred / narrow）を取りこぼす**（flow/recurrent は逆に直進に強く off-axis に弱い）。
 
-- **off-centre 特化は「上位互換」ではなくトレードオフ**: footprint-aware で off-centre slot を狙うよう特化した transformer は、**直線上の隙間（*centred gap* / *narrow gap*）を取りこぼす**（*no path*）——flow / recurrent は同じ隙間を難なく通す。つまり transformer は「off-axis スロットを狙う」能力と「直進の隙間を通す」能力を**交換**しており、厳密な改善ではない。学習データ（`dataset='both'`）が off-centre 側に寄った over-aim が原因と見られ、centred サンプルの追加で両立を狙えるはず（future work）。
-- **前方距離の汎化はむしろ広い**（旧主張の撤回）: 以前は「gap 貫通は学習 span（aligned x≈2 m）付近に有界」と書いていたが、壁をゴール寄りに押した *far off-centre gap*（world_x=4.0、前方約 3 m）でも **transformer は貫通**した（5.591 m / 12 pose）。前方距離の汎化は当初の見立てより広く、有界性の主張は撤回する。
+**容量増でトレードオフを解消した（2026-06、検証済み）。** future work とした「centred サンプル追加で両立」を段階的に検証した:
 
-3 ファミリの競合範囲を 1 表に:
+| 段階 | centred/narrow | off-centre | far | double |
+|---|:-:|:-:|:-:|:-:|
+| 小容量・2-way（side+off-centre） | ❌ | ✅ | ✅ | ✅ |
+| 小容量・centred 三分割 | ✅獲得 | ❌喪失 | ✅ | ❌喪失 |
+| 小容量・off-centre 厚め | ❌ | ❌ | ✅ | — |
+| **大容量（dim64/h8/l3）・centred 三分割（出荷）** | **✅** | **✅** | ❌ | **✅** |
+
+小容量では centred を足すと**目玉の off-centre を失う**＝データ配合では解けない**容量限界**だった。しかし **transformer を dim 64 / 8 heads / 3 blocks に増強**し centred を tri-mix すると、**off-centre と dead-ahead（centred/narrow/double）を同時に通す**——トレードオフが**解消**した（実 C++ `planner_benchmark` で検証、出荷モデル）。**残る bound は *far off-centre gap***（同じ off-axis スロットを前方約 3 m に押したもの）で、大容量モデルはこれを通さない＝容量は「種類の幅」を買うが far-forward 変種までは届かない。GPU 学習は run 間非決定で off-centre / far は borderline だが、**出荷アーティファクトが off-centre + dead-ahead を通すことは実 benchmark で検証済み**（checksum 固定）。
+
+更新後の 3 ファミリ競合範囲:
 
 | コース | flow | transformer | recurrent | 解釈 |
 |---|:-:|:-:|:-:|---|
-| *clear* | ✅ | ✅ | ✅ | 全員 |
-| *centred gap* / *narrow gap*（直進の隙間） | ✅ | ❌ | ✅ | transformer が over-aim で取りこぼす |
-| *side obstacle* | ✅ | ✅ | ✅ | 全員（側選択） |
-| *double gate*（直進 2 連隙間） | ✅ | ✅ | ✅ | 全員（連続前進横断） |
-| *off-centre gap* / *far off-centre gap* | ❌ | ✅ | ❌ | transformer のみ（attention で aim） |
+| *clear* / *side obstacle* | ✅ | ✅ | ✅ | 全員 |
+| *centred gap* / *narrow gap* / *double gate*（直進の隙間） | ✅ | ✅ | ✅ | 全員（transformer は容量増で獲得） |
+| *off-centre gap* | ❌ | ✅ | ❌ | transformer のみ（attention で aim） |
+| *far off-centre gap* | ❌ | ❌ | ❌ | 純生成は届かず（hybrid 領域） |
 | *slalom*（S 字二段壁） | ❌ | ❌ | ❌ | hybrid のみ |
 
-要するに **flow/recurrent と transformer は相補的**: 前者は dead-ahead の隙間に強く off-axis に弱い、後者は逆。両者を seam 上の peer として併載する価値がここに出る（用途に応じて選べる、または hybrid が両方を内包する）。
-
-#### centred-sample 再バランスを試した結果（2026-06、トレードオフは「移動」する）
-
-上で future work とした「centred サンプル追加で両立」を**実際に試した**（`make_costmap_path_centred_gap_dataset` を追加し `dataset='both'` を side+off-centre+centred の三分割化して transformer を再学習、実 C++ `planner_benchmark` で検証）。結果は**両立せず、トレードオフが移動しただけ**:
-
-| 配合 | centred / narrow | off-centre gap | far | double gate |
-|---|:-:|:-:|:-:|:-:|
-| 出荷（side+off-centre, 2-way） | ❌ | ✅ | ✅ | ✅ |
-| 三分割（centred 1/3 追加） | ✅ 獲得 | ❌ 喪失 | ✅ | ❌ 喪失 |
-| off-centre 厚め（centred 1/5） | ❌ | ❌ | ✅ | — |
-
-centred を足すと dead-ahead は通るが**プロジェクトの目玉である off-centre 貫通を失う**。off-centre を厚くしても（GPU 学習の run 間非決定性もあり）off-centre 貫通は flaky で安定しない。**= 小型モデル（16→token attention の軽量 transformer）の容量限界**で、この patch 表現・データ規模では「全ての隙間種」を同時に解けない、というのが実証的結論。よって **`'both'` は 2-way のまま据え置き**（off-centre 貫通の再現性を優先）、centred データは `dataset='centred'` として実験用に保持する。両立には**容量増（より大きな transformer）またはカリキュラム/マルチタスク学習**が要る、が次の本筋の future work。
+transformer は**もはや「相補的な片側」ではなく、off-axis も dead-ahead も通す上位の proposer** になった（off-centre は依然 transformer 専有）。次の本筋は *far off-centre* / *slalom* の純生成化で、さらなる容量増・カリキュラム/マルチタスク学習・hybrid 連携が候補。
 
 ### Mode A: 障害物スレッディング（回り込み通過）
 

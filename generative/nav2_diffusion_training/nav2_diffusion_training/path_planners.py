@@ -233,9 +233,9 @@ class CostmapPathFlowPlanner(nn.Module):
         return torch.cat(outs, dim=1)
 
 
-_PATH_TF_DIM = 32
-_PATH_TF_HEADS = 4
-_PATH_TF_LAYERS = 2
+_PATH_TF_DIM = 64
+_PATH_TF_HEADS = 8
+_PATH_TF_LAYERS = 3
 _PATH_FAN_W = 0.4     # half-width [m] of the lateral candidate fan (set-prediction diversity)
 
 
@@ -614,17 +614,17 @@ def _path_dataset(dataset, num_samples):
     if dataset == 'centred':
         return make_costmap_path_centred_gap_dataset(num_samples)
     if dataset == 'both':
-        # One-sided obstacles + off-centre gaps (the transformer Mode B model).
-        # NOTE: a 'centred' tri-mix was tried to also cover dead-ahead gaps, but in
-        # the real C++ benchmark it only *shifted* the trade-off — it gained
-        # centred/narrow while losing the off-centre gap (the project headline),
-        # confirming a small-model capacity limit. So 'both' stays two-way; the
-        # centred data lives on as the 'centred' option for that experiment. See
-        # make_costmap_path_centred_gap_dataset and docs/generative_limits.md.
-        half = num_samples // 2
-        a = make_costmap_path_dataset(num_samples - half)
-        b = make_costmap_path_gap_dataset(half)
-        return tuple(torch.cat([a[i], b[i]], dim=0) for i in range(3))
+        # Tri-mix: one-sided obstacles + off-centre gaps + dead-ahead (centred) gaps,
+        # so the (larger-capacity) transformer can learn to pick the free side, route
+        # through an off-centre slot, AND thread a dead-ahead slot. Only the
+        # transformer Mode B model uses 'both'. (At the previous small capacity this
+        # tri-mix only *shifted* the trade-off; revisited with more capacity — see
+        # docs/generative_limits.md.)
+        third = num_samples // 3
+        a = make_costmap_path_dataset(num_samples - 2 * third)
+        b = make_costmap_path_gap_dataset(third)
+        c = make_costmap_path_centred_gap_dataset(third)
+        return tuple(torch.cat([a[i], b[i], c[i]], dim=0) for i in range(3))
     raise ValueError('unknown path dataset: ' + dataset)
 
 
