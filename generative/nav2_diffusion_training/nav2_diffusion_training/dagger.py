@@ -34,6 +34,7 @@ from nav2_diffusion_training.generative_planners import (
     _expert_trajectory,
     COSTMAP_SIZE,
     CostmapFlowPlanner,
+    CostmapTransformerPlanner,
     make_costmap_dataset,
 )
 import numpy as np
@@ -51,10 +52,30 @@ GOAL_TOL = 0.3
 MAX_STEPS = 200
 ROBOT_RADIUS_CELLS = 3      # ~0.15 m footprint check
 
+# Footprint-validation window for the closed-loop selector, mirroring the C++
+# DiffusionController `safety_check_points`: footprint-check only the leading N points of
+# a candidate (0 = the full horizon). The controller replans every step against the live
+# costmap and executes just the first segment, so a tight reactive skirt whose far
+# lookahead clips an obstacle it never reaches should not be hard-rejected. With the
+# corrected oracle below this lifts closed-loop threading from 1/4 to 4/4 for the
+# transformer model (docs/generative_limits.md). 0 keeps the conservative full-horizon gate.
+SAFETY_WINDOW = 3
+
+# Reactive dodge oracle geometry (egocentric patch: row -> +x forward, col -> +y left).
+_DODGE_MARGIN = 0.55        # lateral clearance past the block edge [m] (robot radius + room)
+_DODGE_LOOKAHEAD = 0.4      # carrot distance for the dodge arc [m]; small => sharp commit
+_DODGE_FWD = 2.0            # only react to a block within this forward distance [m]
+_DODGE_LAT = 0.9            # ...and within this lateral half-width [m]
+
 
 # --- scenarios: (name, obstacle list of (wx, wy, half_cells), start, goal) ---
+# Includes a dead-ahead centred block ('frontal') matching the controller_benchmark
+# *frontal obstacle* (markBlock at (3.0, 3.0)); the half is grown vs the benchmark's 4
+# cells to give the model margin against the live costmap's inflation, which the raw sim
+# grid does not model. DAgger trains on the distribution it is evaluated against.
 SCENARIOS = [
     ('open', [], (1.0, 3.0), (5.0, 3.0)),
+    ('frontal', [(3.0, 3.0, 6)], (1.0, 3.0), (5.0, 3.0)),
     ('side', [(3.0, 3.3, 6)], (1.0, 3.0), (5.0, 3.0)),
     ('side2', [(3.0, 2.7, 6)], (1.0, 3.0), (5.0, 3.0)),
     ('two', [(2.4, 3.3, 5), (3.6, 2.7, 5)], (1.0, 3.0), (5.0, 3.0)),
@@ -103,22 +124,53 @@ def carrot_base_frame(start, goal, x, y, yaw):
     return gx, gy
 
 
-def expert_target(gx, gy, patch):
-    """
-    Expert label at a visited state: pure-pursuit toward the carrot + avoidance.
+def _dodge_offset(patch):
+    """Lateral offset [m] to skirt a block ahead in the egocentric patch (0 if clear).
 
-    The avoidance side is read from the patch (col 0 = +y): more obstacle mass on
-    the +y (low-col) half -> obstacle on the left -> veer right (side=+1 in
-    _expert_trajectory's convention).
+    Reads the occupied cells in a near-forward corridor (forward < ``_DODGE_FWD``,
+    |lateral| < ``_DODGE_LAT``; patch row -> +x forward, col -> +y left), then steers to
+    the side with clearance, offsetting past the block's near edge by ``_DODGE_MARGIN``
+    (enough for the footprint, not just the robot centre). Returning a *sustained* offset
+    (vs the old transient half-sine bow) is what lets the robot actually clear the block
+    in closed loop instead of tracking the on-line carrot straight into it.
     """
     s = COSTMAP_SIZE
-    left = float(patch[:, :s // 2].sum())     # +y half (low cols)
-    right = float(patch[:, s // 2:].sum())    # -y half
-    if max(left, right) < 2.0:
-        side = 0.0
-    else:
-        side = 1.0 if left > right else -1.0
-    return np.array(_expert_trajectory(gx, gy, side, SPEED), dtype=np.float32)
+    c = (s - 1) / 2.0
+    occ = np.argwhere(patch > 0.5)
+    if occ.size == 0:
+        return 0.0
+    fwd = (c - occ[:, 0]) * RES
+    lat = (c - occ[:, 1]) * RES
+    ahead = (fwd > 0.05) & (fwd < _DODGE_FWD) & (np.abs(lat) < _DODGE_LAT)
+    if not ahead.any():
+        return 0.0
+    blat = lat[ahead]
+    lo, hi = float(blat.min()), float(blat.max())
+    if -lo > hi:                       # block mostly on -y -> go +y, clear its hi edge
+        return hi + _DODGE_MARGIN
+    if hi > -lo:                       # block mostly on +y -> go -y, clear its lo edge
+        return lo - _DODGE_MARGIN
+    return (hi + _DODGE_MARGIN) if (hi + _DODGE_MARGIN) < (_DODGE_MARGIN - lo) \
+        else (lo - _DODGE_MARGIN)
+
+
+def expert_target(gx, gy, patch):
+    """
+    Expert label at a visited state: pure-pursuit toward the carrot, dodging a block.
+
+    Clear path -> pursue the carrot (gx, gy). Block ahead -> pursue a carrot
+    ``_DODGE_LOOKAHEAD`` m ahead offset by ``_dodge_offset`` to the free side, so the
+    dodge is realized as *curvature* from yaw 0 (a unicycle can only move laterally by
+    turning, and extractCommand reads angular rate from the first segment's yaw change).
+    The small lookahead makes the turn sharp enough to reach the offset before the block,
+    and re-observing each step holds the offset until it is passed. This corrected oracle
+    reaches the goal collision-free in closed loop on every scenario (the shipped 0.20 m
+    transient bow collided; docs/generative_limits.md).
+    """
+    off = _dodge_offset(patch)
+    if off == 0.0:
+        return np.array(_expert_trajectory(gx, gy, 0.0, SPEED), dtype=np.float32)
+    return np.array(_expert_trajectory(_DODGE_LOOKAHEAD, off, 0.0, SPEED), dtype=np.float32)
 
 
 def _candidates(model, gx, gy, patch):
@@ -138,6 +190,9 @@ def _to_global(traj, x, y, yaw):
 
 
 def _collision_free(traj, x, y, yaw, gm):
+    # Mirror the C++ safety_check_points: footprint-check only the leading window.
+    if SAFETY_WINDOW > 0:
+        traj = traj[:SAFETY_WINDOW]
     for wx, wy in _to_global(traj, x, y, yaw):
         mx, my = int(wx / RES), int(wy / RES)
         if not (0 <= mx < GRID and 0 <= my < GRID):
@@ -304,4 +359,76 @@ def dagger_train_costmap(path, iters=4, base_samples=240, epochs=400, lr=0.01,
         input_names=['context', 'costmap'], output_names=['trajectories'],
         opset_version=18)
     onnx.save_model(onnx.load(path), path, save_as_external_data=False)
+    return model
+
+
+def _export_onnx(model, path):
+    dummy_ctx = torch.zeros(1, 4)
+    dummy_map = torch.zeros(1, 1, COSTMAP_SIZE, COSTMAP_SIZE)
+    model.eval()
+    torch.onnx.export(
+        model, (dummy_ctx, dummy_map), path,
+        input_names=['context', 'costmap'], output_names=['trajectories'],
+        opset_version=18)
+    onnx.save_model(onnx.load(path), path, save_as_external_data=False)
+
+
+def dagger_train_costmap_transformer(path, iters=8, base_samples=320, epochs=900,
+                                     lr=0.003, verbose=False):
+    """DAgger-train the **costmap-token transformer** for closed-loop obstacle threading.
+
+    The high-capacity ``CostmapTransformerPlanner`` (cross-attention over costmap tokens)
+    is what makes Mode A *threading* work: it fits the corrected reactive dodge oracle
+    (the small CNN-embedding flow model cannot — it plateaus and stays at 1/4), and with
+    the windowed footprint gate (``SAFETY_WINDOW`` / the C++ ``safety_check_points``) the
+    DAgger-trained policy reaches the goal **4/4 closed-loop** in the costmap sim, vs the
+    1/4 documented ceiling. Regresses all K query candidates onto the expert (set targets)
+    with cosine LR + grad-clip + best-checkpoint, then exports the 2-input ONNX contract
+    (``context[1,4]`` + ``costmap[1,1,32,32]`` -> ``trajectories[1,K,10,3]``).
+    """
+    torch.manual_seed(0)
+    model = CostmapTransformerPlanner()
+    ctx, cm, tgt = (t.clone() for t in make_costmap_dataset(base_samples))
+
+    def fit(c, m, t):
+        opt = torch.optim.Adam(model.parameters(), lr=lr)
+        sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=max(1, epochs))
+        model.train()
+        best, best_state, last = float('inf'), None, 0.0
+        for _ in range(max(1, epochs)):
+            opt.zero_grad()
+            loss = model.recon_loss(c, m, t)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            opt.step()
+            sched.step()
+            last = float(loss.item())
+            if last < best:
+                best = last
+                best_state = {k: v.detach().clone() for k, v in model.state_dict().items()}
+        if best_state is not None:
+            model.load_state_dict(best_state)
+        model.eval()
+        return best
+
+    fit(ctx, cm, tgt)
+    for it in range(iters):
+        new_ctx, new_cm, new_tgt = [], [], []
+        for sc in SCENARIOS:
+            _, _, samples = rollout(model, sc, collect=True)
+            for c, p, t in samples:
+                new_ctx.append(c)
+                new_cm.append(p[None])
+                new_tgt.append(t)
+        if new_ctx:
+            ctx = torch.cat([ctx, torch.tensor(np.array(new_ctx), dtype=torch.float32)])
+            cm = torch.cat([cm, torch.tensor(np.array(new_cm), dtype=torch.float32)])
+            tgt = torch.cat([tgt, torch.tensor(np.array(new_tgt), dtype=torch.float32)])
+        loss = fit(ctx, cm, tgt)
+        if verbose:
+            reached, total = eval_closed_loop(model)
+            print('DAgger(transformer) iter %d: dataset=%d loss=%.4f closed-loop=%d/%d'
+                  % (it + 1, ctx.shape[0], loss, reached, total), flush=True)
+
+    _export_onnx(model, path)
     return model

@@ -183,7 +183,21 @@ Mode B の attnseq で効いた手（高容量 + token attention + DAgger）を 
 
 2. **だが修正 oracle でも gated 閉ループは 1/4 のまま**。高容量 transformer（costmap token への cross-attention）が修正 oracle を **loss~0 で完全 fit** しても閉ループ成功は変わらない。原因は**デプロイの安全ゲートの粒度**: `_select`／実 C++ `FootprintCollisionFilter::check` は候補軌道の **H ステップ全点**を footprint チェックし、**1 点でも衝突すれば hard reject** する。ところがタイトな skirt 回避は、**ステップ実行では安全に脇を抜ける**（robot は y≈2.85 を通過、ブロックは y≥3.0）のに、**1m 先までの lookahead 弧の先端がブロックに被る**ため毎ステップ「安全候補なし」と判定され停止する。つまり「再観測のたびに分布外へ」だけでなく、**全ホライズン hard-reject の安全検証がタイトな反応的回避と非両立**——これが「障害物が patch に入った瞬間に安全停止」の機構的な正体である。
 
-**含意**: obstacle-threading を**純生成**で通すには、データ・モデルを増やすより、**安全ゲート/選択を「実際に実行する近傍ウィンドウ」基準に変える**（毎サイクル costmap を再評価する前提で、全ホライズンの hard-reject ではなく実行区間の検証＋コスト重み選択にする）必要がある——これは controller 設計の変更で、安全側のトレードオフを伴うため別途設計判断が要る。`safety/kinematic` が**衝突を常に防ぐ**現設計は保ったまま、**ハイブリッド（VFH+ fallback）が全シナリオ到達**を保証する点は変わらない（[[kinematics-conditioned-planner]] の propose/dispose と対称）。
+**含意**: obstacle-threading を**純生成**で通すには、データ・モデルを増やすより、**安全ゲート/選択を「実際に実行する近傍ウィンドウ」基準に変える**（毎サイクル costmap を再評価する前提で、全ホライズンの hard-reject ではなく実行区間の検証にする）必要がある。
+
+#### 両修正を実装して部分的に突破（side obstacle を純生成で貫通、2026-06）
+
+上の 2 機構を実際に直した:
+
+- **窓化 footprint ゲート**: `DiffusionController` に `safety_check_points` パラメータを追加（既定 0＝従来の全ホライズン hard-reject で後方互換）。`>0` で候補軌道の先頭 N 点（実際に実行する区間）だけ footprint 検証する——receding-horizon。kinematic ゲートは常に全軌道を見る。
+- **修正 reactive oracle**: `dagger.py` の衝突する手書き expert を、自由側へ持続オフセットする曲率ベースの dodge（`_dodge_offset` + 近い offset carrot への pure-pursuit）に置換。
+- **高容量モデル**: `dagger_train_costmap_transformer` が costmap-token transformer を DAgger 学習（小容量 flow は鋭い dodge を fit できず 1/4 のまま＝容量が効く）。
+
+結果:
+- **DAgger 閉ループ sim**: 窓化ゲート + 修正 oracle + transformer で **1/4 → 4/4（後に frontal 追加で 5 シナリオ中 4/5）**。
+- **実 C++ `controller_benchmark`（`safety_check_points=3`, fallback 無し）**: `diffusion_local_costmap_threading_v0` が **side obstacle を純生成で貫通（4.27m 完走）**——**本リポジトリで学習 Mode A が初めて障害物を生成的に通過**（learned/transformer/recurrent は全て ~1.0m で timeout）。dead-ahead 中央の **frontal** は最も前進（1.69m / clearance 0.20m）するが未完、**corridor** も timeout（dodge oracle は通路センタリングをしない／実コストマップの inflation で dead-ahead が想定より太い）。sim の 4/5 は実機ベンチに**完全には転移しない**。
+
+**正直な現状**: 「閉ループ分布シフト＋安全ゲート粒度」という天井は機構的に同定し、**side obstacle については純生成で突破**した（実 C++ ベンチで検証）。frontal/corridor は未解決で、`safety/kinematic` が**衝突を常に防ぐ**現設計の下、**ハイブリッド（VFH+ fallback）が全シナリオ到達**を保証する点は変わらない（[[kinematics-conditioned-planner]] の propose/dispose と対称、[[mode-a-threading-ceiling-diagnosed]]）。
 
 **ただしハイブリッドで解決済み（✅）**: `DiffusionController` の `fallback_controller_plugin`（既存）に classical の reactive controller（VFH+ 等）を設定すると、安全候補が無いとき停止する代わりに委譲する。`controller_comparison.md` の **Diffusion (Mode A, hybrid)** 行は **全シナリオで goal 到達**（open は learned、障害物は VFH+ fallback が回避。corridor 行は VFH+ と完全一致 = fallback 稼働の証拠）。Mode B planner の hybrid と完全に対称。
 

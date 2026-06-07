@@ -1,0 +1,91 @@
+# Manifest for the curated generative LOCAL trajectory model: the *obstacle-threading*
+# Mode A (local controller) model — the costmap-token transformer DAgger-trained on a
+# corrected reactive dodge oracle, run with the controller's windowed footprint gate.
+# Schema mirrors nav2_diffusion_models/manifests/example_diffusion_local.yaml. Reproduce
+# the artifact with export.py.
+
+model_name: diffusion_local_costmap_threading_v0
+model_family: transformer          # DETR-style set prediction; DAgger closed-loop trained
+
+input_modalities:
+  - local_costmap                  # egocentric 32x32 patch, normalized [0,1]
+  - local_goal                     # carrot in the robot base frame
+  - speed_limits                   # desired linear speed + max angular speed
+
+output_type: trajectory_candidates # K base-frame SE(2) trajectories
+frame_convention: base_link
+horizon: 1.0                       # seconds (10 steps x 0.1 s)
+robot_kinematics: diff             # unicycle / differential drive
+
+io_contract:
+  inputs:
+    context: [1, 4]                # [goal_x, goal_y, linear_speed, max_angular_speed]
+    costmap: [1, 1, 32, 32]        # egocentric; cropEgocentricPatch maps col 0 -> +y (left)
+  output:
+    trajectories: [1, 3, 10, 3]    # (x, y, yaw) in the base frame
+  patch:
+    size: 32
+
+architecture:
+  type: transformer_set_prediction
+  note: >
+    Same CostmapTransformerPlanner as diffusion_local_costmap_transformer_v0 (strided-conv
+    costmap tokenizer + context token; K=3 learned query tokens cross-attend through 2
+    decoder blocks). The difference is the TRAINING: DAgger (dataset aggregation) in a
+    numpy costmap closed-loop sim, relabelled by a corrected reactive dodge oracle, so the
+    policy learns the right action on the states it actually reaches. The small
+    CNN-embedding flow model cannot fit the sharp dodge (stays at 1/4); capacity matters.
+
+training_data:
+  datasets:
+    - name: dagger_closed_loop_corrected_oracle
+      source: sim                  # procedural numpy costmap rollouts + reactive dodge oracle
+      fraction: 1.0
+  robot_types:
+    - differential_drive
+  notes: >
+    DAgger (nav2_diffusion_training.dagger.dagger_train_costmap_transformer): roll the
+    current policy out in the costmap sim over open / frontal (dead-ahead) / side / two
+    scenarios, relabel each visited state with the corrected reactive dodge oracle
+    (sustained lateral offset to the free side, curvature-based commit), aggregate and
+    retrain. NO real-robot or rosbag data. The oracle replaces the shipped one, which
+    collided in closed loop (a 0.20 m transient bow + on-line carrot).
+
+# Behavioural / closed-loop checks (not the full Nav2 stack).
+benchmark_results:
+  passed: true
+  suite: controller_benchmark (real C++, live costmap) + DAgger closed-loop sim
+  closed_loop_sim: "4/5 scenarios (open/frontal/side/side2/two) with safety_check_points=3"
+  controller_benchmark_real: >
+    First learned Mode A controller here to thread an obstacle purely generatively (no
+    fallback): REACHES the goal on the *side obstacle* (full 4.27 m traverse where
+    learned/transformer/recurrent stall at ~1.0 m). Drives markedly further/closer on the
+    dead-ahead *frontal obstacle* (1.69 m, 0.20 m clearance vs ~1.0 m / 0.75 m) but still
+    times out there and on the *corridor* (the dodge oracle does not centre in a passage;
+    a dead-ahead inflated block needs a sharper commit). Must run with the windowed
+    footprint gate (safety_check_points). The hybrid (VFH+ fallback) remains the
+    all-scenario guarantee. See docs/generative_limits.md and docs/controller_comparison.md.
+  collision_count: 0
+
+limitations:
+  - "Synthetic training data only — NOT validated on any real robot or rosbag."
+  - "Threads the side obstacle generatively in the real benchmark, but the dead-ahead frontal block and the corridor still time out (sim 4/5 does not fully transfer). The hybrid fallback is the completeness guarantee."
+  - "Requires the controller's windowed footprint gate (safety_check_points>0); under the default full-horizon gate it is hard-rejected like the others."
+  - "Research / demonstration model. Do not deploy on hardware; the safety layer is the authority."
+
+license:
+  model: Apache-2.0
+  data: Apache-2.0
+  code: Apache-2.0
+
+checksum:
+  algorithm: sha256
+  value: "1e8ffdd010a3f33ca0f207b028e9819ba3b8d0a4ca23ce5fc5fa0a0667d2d722"
+  artifact: costmap_threading.onnx
+
+reproduce:
+  command: "PYTHONPATH=../../generative/nav2_diffusion_training python3 export.py  # CUDA_VISIBLE_DEVICES= forces CPU"
+  toolchain: "torch 2.10.0+cu128, onnx 1.21.0; trained on CUDA, exported on CPU"
+  hyperparameters: "CostmapTransformerPlanner; DAgger iters 8, base 320, epochs 900, lr 0.003 cosine, grad-clip 1.0, best-checkpoint; SAFETY_WINDOW 3"
+  seed: 0
+  note: "DAgger + GPU training is not bit-exact run-to-run; a re-export reproduces the threading behaviour (side obstacle reached in the real controller_benchmark with safety_check_points=3)."

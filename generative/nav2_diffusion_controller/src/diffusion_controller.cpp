@@ -85,6 +85,8 @@ void DiffusionController::configure(
     node, plugin_name_ + ".model_path", rclcpp::ParameterValue(std::string("")));
   declare_parameter_if_not_declared(
     node, plugin_name_ + ".costmap_patch_size", rclcpp::ParameterValue(0));
+  declare_parameter_if_not_declared(
+    node, plugin_name_ + ".safety_check_points", rclcpp::ParameterValue(0));
 
   node->get_parameter(plugin_name_ + ".lookahead_distance", lookahead_distance_);
   node->get_parameter(plugin_name_ + ".desired_linear_speed", desired_linear_speed_);
@@ -103,7 +105,9 @@ void DiffusionController::configure(
   node->get_parameter(plugin_name_ + ".model_plugin", model_plugin_);
   node->get_parameter(plugin_name_ + ".model_path", model_path_);
   node->get_parameter(plugin_name_ + ".costmap_patch_size", costmap_patch_size_);
+  node->get_parameter(plugin_name_ + ".safety_check_points", safety_check_points_);
   num_candidates_ = std::max(1, num_candidates_);
+  safety_check_points_ = std::max(0, safety_check_points_);
 
   // Generative model: a pluginlib-loaded TrajectoryModel (e.g. an ONNX backend)
   // when model_plugin is set, otherwise the built-in FanRolloutModel. The
@@ -405,7 +409,19 @@ geometry_msgs::msg::TwistStamped DiffusionController::computeVelocityCommands(
     for (std::size_t i = 0; i < candidates.size(); ++i) {
       auto verdict = kinematic_filter_->check(candidates[i]);
       if (verdict.safe) {
-        verdict = footprint_filter_->check(toGlobalFrame(candidates[i], pose));
+        // Footprint-check the full horizon by default, or only the leading
+        // safety_check_points (receding-horizon: the controller replans every cycle
+        // against the live costmap and executes just the first segment, so a tight
+        // reactive skirt whose far lookahead clips an obstacle it never reaches before
+        // re-planning should not be hard-rejected). The kinematic gate above always
+        // covers the whole trajectory.
+        nav2_diffusion_core::Trajectory checked = toGlobalFrame(candidates[i], pose);
+        if (safety_check_points_ > 0 &&
+          checked.points.size() > static_cast<std::size_t>(safety_check_points_))
+        {
+          checked.points.resize(static_cast<std::size_t>(safety_check_points_));
+        }
+        verdict = footprint_filter_->check(checked);
       }
       safe_flags[i] = verdict.safe;
       rejection_reasons[i] = verdict.rejection_reason;

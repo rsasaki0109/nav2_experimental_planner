@@ -59,9 +59,47 @@ def test_dagger_collects_visited_states():
         CostmapFlowPlanner, SCENARIOS, rollout)
 
     model = CostmapFlowPlanner(steps=4).eval()
-    _, _, samples = rollout(model, SCENARIOS[1], collect=True)  # 'side' scenario
+    _, _, samples = rollout(model, SCENARIOS[1], collect=True)  # 'frontal' scenario
     assert len(samples) > 0
     ctx, patch, target = samples[0]
     assert len(ctx) == 4
     assert np.asarray(patch).shape == (32, 32)
     assert np.asarray(target).shape == (10, 3)
+
+
+def test_corrected_oracle_reaches_goal_collision_free():
+    """The corrected reactive dodge oracle clears obstacles in closed loop (4/4 of old).
+
+    The shipped oracle collided on every obstacle scenario (a 0.20 m transient bow + an
+    on-line carrot); the corrected one (sustained free-side offset, curvature-based
+    commit) drives expert-only to the goal without collision on the dead-ahead frontal
+    block and the off-centre side block. Guards the data DAgger aggregates
+    (docs/generative_limits.md).
+    """
+    from nav2_diffusion_training.dagger import SCENARIOS, rollout
+
+    by_name = {sc[0]: sc for sc in SCENARIOS}
+    for name in ('frontal', 'side', 'two'):
+        reached, collided, _ = rollout(None, by_name[name], collect=False, expert_only=True)
+        assert reached, f'corrected oracle failed to reach goal on {name}'
+        assert not collided, f'corrected oracle collided on {name}'
+
+
+def test_dagger_transformer_exports_contract(tmp_path):
+    """A tiny transformer-DAgger run exports the Mode A ONNX contract."""
+    import numpy as np
+    import onnxruntime as ort
+
+    from nav2_diffusion_training.dagger import dagger_train_costmap_transformer
+
+    path = str(tmp_path / 'threading.onnx')
+    dagger_train_costmap_transformer(path, iters=1, base_samples=16, epochs=2, lr=0.003)
+
+    session = ort.InferenceSession(path, providers=['CPUExecutionProvider'])
+    assert {i.name for i in session.get_inputs()} == {'context', 'costmap'}
+    out = session.run(
+        None,
+        {'context': np.zeros((1, 4), dtype=np.float32),
+         'costmap': np.zeros((1, 1, 32, 32), dtype=np.float32)})[0]
+    assert out.shape == (1, 3, 10, 3)
+    assert np.isfinite(out).all()

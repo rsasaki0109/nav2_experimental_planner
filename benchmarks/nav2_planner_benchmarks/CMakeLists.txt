@@ -80,6 +80,11 @@ install(
   DESTINATION share/${PROJECT_NAME}/models
   RENAME diffusion_local_costmap_recurrent.onnx
 )
+install(
+  FILES ${CMAKE_CURRENT_SOURCE_DIR}/../../model_zoo/diffusion_local_threading/costmap_threading.onnx
+  DESTINATION share/${PROJECT_NAME}/models
+  RENAME diffusion_local_costmap_threading.onnx
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

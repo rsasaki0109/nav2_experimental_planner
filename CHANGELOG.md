@@ -7,6 +7,26 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 ## [Unreleased]
 
 ### Added
+- **Mode A obstacle-threading: first learned controller here to thread an obstacle
+  purely generatively (no fallback) — the documented closed-loop ceiling, partially
+  cracked.** Two fixes, following the diagnosis below: (1) `DiffusionController` gains a
+  `safety_check_points` parameter — a **windowed footprint gate** that validates only the
+  leading N points the robot executes before re-planning (receding-horizon; default 0 =
+  the previous full-horizon hard reject, so existing behavior is unchanged), letting a
+  tight reactive skirt survive instead of being rejected for clipping the block with its
+  far lookahead; and (2) `nav2_diffusion_training/dagger.py` replaces the colliding DAgger
+  oracle with a corrected reactive dodge (sustained free-side offset, curvature-based
+  commit) and adds `dagger_train_costmap_transformer` (the high-capacity costmap-token
+  transformer — the small flow model cannot fit the sharp dodge). Ships as
+  `diffusion_local_costmap_threading_v0` (model_zoo) + a `Diffusion (Mode A, threading)`
+  controller_benchmark row (`safety_check_points=3`) + dagger gtests (corrected oracle is
+  collision-free; transformer trainer exports the contract). **DAgger closed-loop sim: 1/4
+  → 4/4** (5-scenario 4/5). **Real C++ `controller_benchmark`: reaches the goal on the
+  *side obstacle*** (full 4.27 m traverse where learned/transformer/recurrent stall at
+  ~1.0 m), and drives much further/closer on the dead-ahead *frontal* block (1.69 m /
+  0.20 m clearance) though it still times out there and on the *corridor* — the sim 4/5
+  does not fully transfer (inflated dead-ahead block; corridor needs centring). The hybrid
+  (VFH+) remains the all-scenario guarantee.
 - **Kinematics-conditioned Mode B planner: one model serves several steering
   geometries across all eight courses (+ omni), and a curvature validator disposes
   of infeasible turns.** The `PathModel` seam's spare second context slot carries the

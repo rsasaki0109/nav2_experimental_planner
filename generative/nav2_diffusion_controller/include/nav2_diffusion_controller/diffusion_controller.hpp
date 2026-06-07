@@ -127,6 +127,14 @@ protected:
   double score_progress_weight_{1.0};
   double score_smoothness_weight_{0.1};
   int costmap_patch_size_{0};  // egocentric costmap patch side [cells]; 0 = off
+  // Footprint-collision validation window: number of leading trajectory points to
+  // footprint-check (0 = the full horizon). The controller replans every cycle against
+  // the live costmap and only the first segment is executed, so checking just the
+  // executed/near window (receding-horizon style) lets a tight reactive skirt survive —
+  // its far lookahead may clip an obstacle the robot never reaches before re-planning.
+  // Default 0 preserves the conservative full-horizon hard reject. The kinematic gate
+  // always validates the whole trajectory; only the footprint gate is windowed.
+  int safety_check_points_{0};
 
   std::shared_ptr<nav2_diffusion_core::TrajectoryModel> model_;
   // Optional: load a TrajectoryModel via pluginlib (e.g. an ONNX backend)
