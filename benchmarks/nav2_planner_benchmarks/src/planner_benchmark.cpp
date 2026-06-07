@@ -150,6 +150,9 @@ int main(int argc, char ** argv)
   const std::string recurrent_model =
     ament_index_cpp::get_package_share_directory("nav2_planner_benchmarks") +
     "/models/diffusion_global_costmap_recurrent.onnx";
+  const std::string attnseq_model =
+    ament_index_cpp::get_package_share_directory("nav2_planner_benchmarks") +
+    "/models/diffusion_global_costmap_attnseq.onnx";
 
   const std::vector<PlannerEntry> planners = {
     {"RRT*", "nav2_rrt_planner::RRTStarPlanner", "sampling (optimal)", {}},
@@ -177,6 +180,12 @@ int main(int argc, char ** argv)
       "generative GRU rollout + costmap (fanned proposals)",
       {rclcpp::Parameter("model_plugin", std::string("nav2_diffusion_onnx::OnnxPathModel")),
         rclcpp::Parameter("model_path", recurrent_model),
+        rclcpp::Parameter("provide_costmap", true)}},
+    {"Diffusion (Mode B, attnseq)", "nav2_diffusion_global_planner::DiffusionGlobalPlanner",
+      "generative cross-attn autoregressive + costmap (no-fan; threads all 8 courses "
+      "incl. slalom + far off-centre)",
+      {rclcpp::Parameter("model_plugin", std::string("nav2_diffusion_onnx::OnnxPathModel")),
+        rclcpp::Parameter("model_path", attnseq_model),
         rclcpp::Parameter("provide_costmap", true)}},
     {"Diffusion (Mode B, hybrid)", "nav2_diffusion_global_planner::DiffusionGlobalPlanner",
       "generative propose + classical (JPS) fallback",
@@ -240,9 +249,9 @@ int main(int argc, char ** argv)
     "(absolute numbers vary with load); compare relative magnitudes and the "
     "path-length / shape columns.\n\n";
   std::cout << "Planners (all `nav2_core::GlobalPlanner` plugins absent from "
-    "upstream Nav2 — eight classical plus six generative Mode B variants: "
+    "upstream Nav2 — eight classical plus seven generative Mode B variants: "
     "analytic, learned (flow), learned (transformer), learned (recurrent), "
-    "learned+classical fallback hybrid, and guided hybrid):\n\n";
+    "learned (attnseq), learned+classical fallback hybrid, and guided hybrid):\n\n";
   for (const auto & p : planners) {
     std::cout << "- **" << p.label << "** — " << p.family << "\n";
   }
@@ -251,15 +260,16 @@ int main(int argc, char ** argv)
     "The others replan from scratch each call.\n\n";
   std::cout << "> **Diffusion (Mode B)** is the generative planner — a model "
     "*proposes* candidate paths and the deterministic validity layer *disposes* of "
-    "colliding ones, keeping the shortest survivor. Six variants run here. "
+    "colliding ones, keeping the shortest survivor. Seven variants run here. "
     "**analytic** uses the built-in `FanPathModel` (a symmetric bowed fan, no ONNX); "
     "**learned (flow)** loads the curated costmap-conditioned flow model from "
     "`model_zoo` via `OnnxPathModel` (real ONNX inference); **learned (transformer)** "
     "loads the transformer Mode B model (attention over costmap tokens); "
     "**learned (recurrent)** loads the GRU-rollout Mode B model (a third family that "
-    "emits each path one waypoint at a time). All are pure "
+    "emits each path one waypoint at a time); **learned (attnseq)** loads the no-fan "
+    "cross-attention autoregressive model (a fourth family). All are pure "
     "generative, so unlike the search planners they are not complete: if no proposal "
-    "threads the gap they report no path. The three learned families split the "
+    "threads the gap they report no path. The learned families split the "
     "scenarios along a clear axis. The flow and recurrent models read the costmap and "
     "bias proposals to the open side: they thread every gap that sits **dead ahead** "
     "(*centred gap*, *narrow gap*, *double gate*) and clear *side obstacle*, but their "
@@ -268,15 +278,17 @@ int main(int argc, char ** argv)
     "transformer goes further: attention over explicit costmap tokens lets it *aim* at "
     "an off-axis slot, and a **differentiable footprint-clearance loss** pulls each "
     "proposal's wall crossing into the free slot with margin — so it **threads the "
-    "footprint-validated *off-centre gap*** (the documented ceiling). An earlier small "
-    "transformer over-aimed and missed the dead-ahead gaps, a real trade-off; **raising "
-    "its capacity (and adding dead-ahead training samples) closed it** — this model now "
-    "threads **both** the off-centre gap **and** the *centred*/*narrow*/*double gate* "
-    "dead-ahead gaps, plus *side obstacle*. The remaining bound is the *far off-centre "
-    "gap* (the same off-axis slot pushed ~3 m forward), which this model no longer "
-    "reaches — capacity buys breadth but not the far-forward variant (see "
-    "docs/generative_limits.md). No pure-generative variant clears the S-shaped "
-    "*slalom* (two staggered walls); that still needs the hybrid. The **hybrid** "
+    "footprint-validated *off-centre gap*** plus the *centred*/*narrow*/*double gate* "
+    "dead-ahead gaps and *side obstacle* (6/8); its bounds are the *far off-centre gap* "
+    "and the S-shaped *slalom*. The **attnseq** family clears both: it drops the lateral "
+    "fan (K learned seeds let a candidate take an *S* shape, which a uniformly shifted "
+    "fan cannot) and reads the costmap at every rollout step. Trained on collision-clean "
+    "**plateau** experts with **deployment-matched** patches — the two fixes that turned "
+    "*slalom* and *far off-centre* from apparent architecture ceilings into threadable "
+    "courses (they were a colliding training expert and a train/inference patch mismatch, "
+    "not a model limit) — it **threads all eight courses** as a pure-generative proposer, "
+    "the first Mode B model here to clear the slalom and the far off-centre gap without a "
+    "classical fallback (see docs/generative_limits.md). The **hybrid** "
     "variant "
     "keeps the learned proposal but adds a classical (JPS) fallback: when no "
     "proposal threads the map it hands off to a complete search, so it solves every "

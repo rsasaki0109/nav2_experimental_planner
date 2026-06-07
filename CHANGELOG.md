@@ -6,35 +6,42 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 
 ## [Unreleased]
 
-### Changed
-- **Deeper slalom diagnosis: no single fix cracks it (data / capacity / footprint /
-  head all ruled out).** Isolated each lever with slalom-only training: dropping the
-  footprint term lowers loss 0.32→0.14 but slalom still fails (and clearance
-  optimization is gone); an MLP decoder head leaves the loss unchanged (head capacity
-  isn't the bottleneck); even the unshifted centre candidate doesn't thread (fit is
-  the primary limit). Recorded in `docs/generative_limits.md`. Threading slalom needs
-  a *coordinated* redesign (slalom-aware footprint formulation + per-crossing
-  candidate diversity + output representation), not an incremental tweak; the shipped
-  model and architecture are unchanged.
-
 ### Added
-- **`make_costmap_path_slalom_dataset` + a `'slalom'` path dataset option** (two
-  staggered walls + an S-shaped two-crossing expert), with a unit test — the data
-  for the slalom pure-generative experiment below.
+- **New `attnseq` Mode B path family — the first pure-generative planner here to
+  thread ALL eight benchmark courses (8/8), including the long-"ceiling" *slalom*
+  and *far off-centre gap*.** `CostmapPathAttnSeqPlanner` (cross-attention perception
+  tokenizer + a per-step cross-attention GRU decoder that reads the costmap memory as
+  it rolls each path out, with K learned seeds and **no lateral fan**) ships as
+  `diffusion_global_costmap_attnseq_v0` in `model_zoo/diffusion_global_attnseq/`
+  (onnx + manifest + model_card + export.py), a fourth `Diffusion (Mode B, attnseq)`
+  benchmark row, and an `OnnxPathModelTest.CuratedZooAttnseqProposesSlalomSCurve`
+  gtest. Strictly exceeds the transformer (6/8). Verified in the real C++
+  `planner_benchmark` (all 8 are 12-pose generative paths, no fallback).
+- **`make_costmap_path_double_gate_dataset` + a five-way `'all'` dataset mix**
+  (side + off-centre/far gap + centred/narrow gap + double gate + slalom), with unit
+  tests — the training data for the 8/8 attnseq model.
+- **`make_costmap_path_slalom_dataset` + `'slalom'` path dataset option**, an
+  `'attnseq'` training kind, and a `CostmapPathAttnSeqPlanner` ONNX-contract test.
 
 ### Changed
-- **Tried slalom pure-generative; found it needs an architecture change, not data
-  (honest negative result with a diagnosis).** Added the S-shaped slalom expert and
-  retrained: in the real C++ benchmark slalom stays *no path* — quad-mixing it into
-  `'both'` left slalom unsolved and cost the off-centre gap (capacity overflow), and
-  a slalom-*only* model also fails to thread it with a high training loss (~0.32 vs
-  ~0.04 for single-bow tasks). Root cause is the transformer's lateral-fan candidate
-  mechanism: an S must thread *both* slots, but a lateral offset shifts both
-  crossings off their slots, so every candidate misses. So `'both'` stays tri-mix,
-  the **shipped model is unchanged** (v0.11.0), the slalom data lives on as the
-  `'slalom'` option, and the finding is recorded in `docs/generative_limits.md`.
-  Threading slalom needs a per-crossing candidate-diversity mechanism (not a lateral
-  fan) or a sequential output family.
+- **Slalom and far off-centre gap were NOT an architecture ceiling — they were two
+  data bugs, now fixed (the "ceiling" flips to 8/8).** Three architectures had
+  converged to the same training-loss plateau, which read as a model limit; faithfully
+  reproducing the C++ validator in Python instead exposed the real causes: (1) the
+  slalom expert was a narrow two-Gaussian bump that reached each slot offset only at
+  the wall-band *centre*, so it grazed the walls at the band edges — the training
+  target itself was a colliding path (max occupancy 0.5–1.0), so no fit could thread
+  it; and (2) the hand-filled training patch (`_gap_patch`) could land a whole row off
+  the patch the deployed planner samples from the live costmap. Fixed with a
+  collision-clean **plateau** expert (`_plateau_track`) and **deployment-matched**
+  patches (`_resampled_aligned_patch`, sampled the same way as
+  `OnnxPathModel::alignedPatch`). With both fixed, the no-fan attnseq family threads
+  all eight. Recorded in `docs/generative_limits.md`.
+- **Rewrote the gap / centred / slalom datasets to deployment-matched plateau form**
+  (`_resampled_aligned_patch` + `_plateau_track`), so training patches match what the
+  planner samples at inference. Added gradient clipping to
+  `train_and_export_costmap_path` (keeps the autoregressive rollouts from diverging).
+  The shipped flow / transformer / recurrent artifacts are unchanged.
 - **Refreshed `docs/roadmap.md` to the v0.11.0 state** (was "v0.9.0 時点"):
   off-centre-gap ceiling break (v0.10.0) and the capacity-bump that closed the
   off-centre/dead-ahead gap trade-off (v0.11.0), package reorg, CI revival in a

@@ -14,6 +14,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
@@ -38,6 +39,10 @@
 // The recurrent (GRU rollout) Mode B sibling shipped in model_zoo/ (same contract).
 #ifndef ONNX_ZOO_COSTMAP_PATH_RECURRENT_MODEL
 #define ONNX_ZOO_COSTMAP_PATH_RECURRENT_MODEL ""
+#endif
+// The attnseq (no-fan cross-attention autoregressive) Mode B sibling in model_zoo/.
+#ifndef ONNX_ZOO_COSTMAP_PATH_ATTNSEQ_MODEL
+#define ONNX_ZOO_COSTMAP_PATH_ATTNSEQ_MODEL ""
 #endif
 
 using nav2_diffusion_onnx::OnnxPathModel;
@@ -270,4 +275,82 @@ TEST(OnnxPathModelTest, CuratedZooTransformerAimsAtOffCentreSlot)
   for (const auto & c : neg) {
     EXPECT_LT(c.points[c.points.size() / 2].y, -0.5);
   }
+}
+
+namespace
+{
+// A PathContext with the EXACT benchmark *slalom* geometry (planner_benchmark.cpp):
+// start (1,3) -> goal (5,3) on a 6x6 m / 0.05 m costmap, two staggered walls built by
+// the same markWall rule — wall A at world x=2.2 with its slot at y=1.0, wall B at
+// world x=3.8 with its slot at y=5.0 (half_cells=2 -> 0.25 m thick, gap_half=0.8).
+// Threading needs an S: from the y=3 line down toward y=1 then up toward y=5.
+nav2_diffusion_core::PathContext slalomContext()
+{
+  nav2_diffusion_core::PathContext ctx;
+  ctx.start_x = 1.0;
+  ctx.start_y = 3.0;
+  ctx.goal_x = 5.0;
+  ctx.goal_y = 3.0;
+  const unsigned int n = 120;    // 6 m / 0.05 m
+  ctx.costmap_size_x = n;
+  ctx.costmap_size_y = n;
+  ctx.costmap_resolution = 0.05;
+  ctx.costmap_origin_x = 0.0;
+  ctx.costmap_origin_y = 0.0;
+  ctx.costmap.assign(static_cast<std::size_t>(n) * n, 0.0f);
+  // wall: {world_x, gap_center_y, gap_half, half_cells} (benchmark markWall signature)
+  const double walls[2][4] = {{2.2, 1.0, 0.8, 2}, {3.8, 5.0, 0.8, 2}};
+  for (const auto & w : walls) {
+    const int cx = static_cast<int>(w[0] / ctx.costmap_resolution);
+    for (unsigned int my = 0; my < n; ++my) {
+      const double wy = (my + 0.5) * ctx.costmap_resolution;
+      if (std::abs(wy - w[1]) <= w[2]) {
+        continue;
+      }
+      for (int dx = -static_cast<int>(w[3]); dx <= static_cast<int>(w[3]); ++dx) {
+        const int mx = cx + dx;
+        if (mx >= 0 && mx < static_cast<int>(n)) {
+          ctx.costmap[static_cast<std::size_t>(my) * n + mx] = 1.0f;
+        }
+      }
+    }
+  }
+  return ctx;
+}
+}  // namespace
+
+// The attnseq Mode B sibling (diffusion_global_costmap_attnseq_v0): unlike the lateral-fan
+// families it can propose an *S* (two crossings to opposite slots), which is what lets it
+// thread the slalom as a pure-generative planner (8/8 in the C++ planner_benchmark; see
+// docs/generative_limits.md). Guards that the shipped binary still emits an S-shaped
+// candidate on the benchmark slalom geometry — a candidate whose lateral track reaches
+// BOTH slots (down toward y=1, up toward y=5, from the y=3 start/goal line).
+TEST(OnnxPathModelTest, CuratedZooAttnseqProposesSlalomSCurve)
+{
+  const std::string zoo = ONNX_ZOO_COSTMAP_PATH_ATTNSEQ_MODEL;
+  if (zoo.empty()) {
+    GTEST_SKIP() << "model_zoo attnseq path model path not provided";
+  }
+  OnnxPathModel model(zoo);
+  EXPECT_EQ(model.name(), "onnx_path");
+
+  const auto cands = model.generate(slalomContext());
+  ASSERT_FALSE(cands.empty());
+  // At least one candidate must weave through BOTH slots: lateral track reaching well
+  // below the y=3 line (toward slot A at y=1) AND well above it (toward slot B at y=5) —
+  // an S, not a single bow.
+  bool found_s = false;
+  for (const auto & c : cands) {
+    double ymin = 1e9;
+    double ymax = -1e9;
+    for (const auto & p : c.points) {
+      ymin = std::min(ymin, p.y);
+      ymax = std::max(ymax, p.y);
+    }
+    if (ymin < 2.0 && ymax > 4.0) {
+      found_s = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(found_s);
 }

@@ -284,12 +284,14 @@ def test_centred_gap_dataset_routes_straight_through():
 
 def test_slalom_dataset_expert_is_an_s_curve():
     """
-    The slalom dataset has the seam shapes and an S-shaped (two-crossing) expert.
+    The slalom dataset has the seam shapes and a collision-clean S-shaped expert.
 
-    Two staggered walls: the expert weaves through slot A (one side) then slot B
-    (the other), so the lateral track takes both signs. (Threading this in the real
-    benchmark needs an architecture change, not just data — the transformer + lateral
-    fan can't; see docs/generative_limits.md. The dataset stays for that work.)
+    Two staggered walls: the expert weaves through slot A (one side) then slot B (the
+    other), so the lateral track takes both signs. The expert is a *plateau* S (holds
+    each slot offset across the thin wall band) and the patch is sampled the same way
+    the deployed planner samples the live costmap (_resampled_aligned_patch) — the two
+    data fixes that let the no-fan attnseq family thread the slalom pure-generative
+    (8/8 in the C++ benchmark; see docs/generative_limits.md).
     """
     from nav2_diffusion_training.path_planners import (
         PATH_DIM, PATH_H, make_costmap_path_slalom_dataset)
@@ -302,6 +304,27 @@ def test_slalom_dataset_expert_is_an_s_curve():
     assert ys.min().item() < -0.5 and ys.max().item() > 0.5
     # Two wall bands present in the patch.
     assert patches[0, 0].sum().item() > 0
+
+
+def test_double_gate_dataset_is_straight_through_two_gates():
+    """
+    The double-gate dataset has the seam shapes and a straight (two on-line gate) expert.
+
+    Two walls in series, both slots dead ahead: the expert stays on the centre line
+    (no detour) through both gates. Thin walls sampled via _resampled_aligned_patch.
+    """
+    from nav2_diffusion_training.path_planners import (
+        PATH_DIM, PATH_H, make_costmap_path_double_gate_dataset)
+    ctx, patches, targets = make_costmap_path_double_gate_dataset(6)
+    assert ctx.shape[1] == 2
+    assert patches.shape[1:] == (1, 24, 24)
+    assert targets.shape[1:] == (PATH_H, PATH_DIM)
+    # Both gates dead ahead: the expert keeps lateral ~0 throughout.
+    assert targets[0, :, 1].abs().max().item() < 1e-6
+    # Two wall bands present and the centre column (the on-line slot) is free.
+    mid = patches[0, 0]
+    assert mid.sum().item() > 0
+    assert mid[:, mid.shape[1] // 2].sum().item() == 0
 
 
 def test_footprint_penalty_prefers_routing_through_the_slot():

@@ -1,0 +1,104 @@
+# Manifest for the curated generative Mode B (global path) *attnseq* planner.
+# Schema mirrors nav2_diffusion_models/manifests/example_diffusion_local.yaml
+# (docs/architecture.md section 5.4). Reproduce the artifact with export.py.
+
+model_name: diffusion_global_costmap_attnseq_v0
+model_family: attnseq              # cross-attention perception + autoregressive cross-attn decoder
+
+# Conditioning the model consumes (Mode B PathModel ONNX contract).
+input_modalities:
+  - local_costmap                  # goal-aligned 24x24 patch, normalized [0,1]
+  - local_goal                     # goal distance in the goal-aligned frame
+
+output_type: path_candidates       # K start->goal global path proposals
+frame_convention: map              # candidates rotated back into the map frame by the C++ backend
+horizon: n/a                       # global path, not a timed trajectory
+robot_kinematics: generic          # geometric paths; no kinodynamic assumptions
+
+io_contract:
+  inputs:
+    context: [1, 2]
+    costmap: [1, 1, 24, 24]
+  output:
+    paths: [1, 5, 12, 2]
+  patch_window:
+    forward_m: 6.0
+    half_width_m: 3.0
+
+runtime: onnx
+precision: fp32
+
+architecture:
+  type: attnseq_autoregressive
+  note: >
+    A strided conv tokenizes the 24x24 goal-aligned patch into spatial tokens (with
+    learned positional embeddings); a context token is prepended. K=5 learned seeds
+    each roll a path out one waypoint at a time through a GRU cell whose per-step query
+    cross-attends to the costmap memory, so the proposal is conditioned on the costmap
+    at every step (vs the transformer's one-shot set decode). NO lateral fan — the K
+    seeds supply candidate diversity, so a candidate is free to take any shape (an S,
+    not a uniformly shifted bow), which is what lets it represent the two-crossing
+    slalom. Model dim 64, 8 heads.
+
+training_data:
+  datasets:
+    - name: synthetic_all_wall_courses
+      source: sim                  # procedural: side + gap (off-centre/far) + centred/narrow + double gate + slalom
+      fraction: 1.0
+  robot_types:
+    - generic
+  notes: >
+    Fully synthetic ('all' five-way mix). make_costmap_path_dataset (one-sided obstacle),
+    make_costmap_path_gap_dataset (off-centre / far off-centre slot routing),
+    make_costmap_path_centred_gap_dataset (dead-ahead / narrow slot),
+    make_costmap_path_double_gate_dataset (two on-line gates) and
+    make_costmap_path_slalom_dataset (S-shaped two-crossing detour). ALL wall courses use
+    collision-clean PLATEAU experts (hold the slot offset across the whole thin wall band)
+    and DEPLOYMENT-MATCHED patches (_resampled_aligned_patch samples the patch the same way
+    the deployed planner samples the live costmap). NO real-robot or rosbag data.
+
+# Behavioural check, not the full Nav2 benchmark suite (research placeholder).
+benchmark_results:
+  passed: true
+  suite: footprint-validated planner_benchmark (8 courses), pure generative (no fallback)
+  threads_all_eight_courses: true  # clear, centred, narrow, off-centre, far off-centre, double gate, slalom, side
+  passes_slalom: true              # FIRST pure-generative Mode B model here to thread the S-shaped slalom
+  passes_far_off_centre_gap: true  # also threads the ~3 m-forward off-axis slot (the transformer's remaining bound)
+  strictly_exceeds_transformer: true  # transformer is 6/8 (no slalom, no far off-centre); this is 8/8
+  note: >
+    On the footprint-validated planner_benchmark this model THREADS EVERY course as a
+    pure-generative planner (8/8, all candidate paths are the model's own 12-pose output,
+    not a classical fallback) — including the S-shaped 'slalom' (two staggered walls, a
+    two-lateral-crossing detour) and the 'far off-centre gap', both of which were long
+    documented as pure-generative ceilings. They were not an architecture ceiling but two
+    DATA bugs: (1) the slalom expert grazed its own walls (a narrow two-Gaussian bump that
+    reached the slot offset only at the band centre) — fixed with a collision-clean plateau
+    expert; (2) the hand-filled training patch could sit a row off the patch the deployed
+    planner samples — fixed by resampling the training patch the same way. With those fixes
+    a no-fan family (the K seeds let a candidate take an S shape, which the transformer's
+    uniform lateral fan cannot) threads all eight. See docs/generative_limits.md.
+  collision_count: 0               # deterministic validity layer gates all output
+
+limitations:
+  - "Synthetic training data only — NOT validated on any real robot or rosbag."
+  - "8/8 on the benchmark's curated wall courses; not a completeness guarantee on arbitrary maps (the hybrid planner's classical fallback is still the completeness authority)."
+  - "Slot aiming / threading demonstrated for offsets up to ~2 m within the 24x24 / 6x6 m patch window; geometry is benchmark-matched, so far-out-of-distribution maps may still need the fallback."
+  - "Autoregressive rollout: highest per-call latency of the Mode B families (still ~4 ms here)."
+  - "Research / demonstration model. Do not deploy on hardware; the validity layer is the authority."
+
+license:
+  model: Apache-2.0
+  data: Apache-2.0                  # procedurally generated by this repo
+  code: Apache-2.0
+
+checksum:
+  algorithm: sha256
+  value: "3e3d6aec092dcae19814016f9173faaa683cf6d76da1766ceba648435bdfde0a"
+  artifact: costmap_attnseq.onnx
+
+reproduce:
+  command: "PYTHONPATH=../../generative/nav2_diffusion_training python3 export.py  # GPU if available; CUDA_VISIBLE_DEVICES= forces CPU"
+  toolchain: "torch 2.10.0+cu128, onnx 1.21.0; trained on CUDA, exported on CPU"
+  hyperparameters: "attnseq (dim 64 / 8 heads), dataset 'all' five-way mix (side + off-centre/far gap + centred/narrow gap + double gate + slalom), 400 samples, 3000 epochs, lr 0.004 cosine, grad-clip 1.0, best-checkpoint"
+  seed: 0
+  note: "GPU training is not bit-exact run-to-run; the committed artifact threads ALL EIGHT courses in the C++ planner_benchmark (verified). A re-export may vary slightly in which candidates thread the borderline courses but reproduces the 8/8 capability."

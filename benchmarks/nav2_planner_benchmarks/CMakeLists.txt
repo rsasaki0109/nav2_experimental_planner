@@ -56,6 +56,11 @@ install(
   RENAME diffusion_global_costmap_recurrent.onnx
 )
 install(
+  FILES ${CMAKE_CURRENT_SOURCE_DIR}/../../model_zoo/diffusion_global_attnseq/costmap_attnseq.onnx
+  DESTINATION share/${PROJECT_NAME}/models
+  RENAME diffusion_global_costmap_attnseq.onnx
+)
+install(
   FILES ${CMAKE_CURRENT_SOURCE_DIR}/../../model_zoo/diffusion_local/costmap_flow.onnx
   DESTINATION share/${PROJECT_NAME}/models
   RENAME diffusion_local_costmap_flow.onnx

@@ -15,7 +15,7 @@
 | Mode B: **off-centre gap を実際に通る（footprint 検証 benchmark）** | ✅ **transformer + footprint-aware 損失で純生成貫通**（flow・recurrent は不可）。当初は off-centre 特化で直進の隙間を取りこぼすトレードオフがあったが、**容量増（dim64/h8/l3）+ centred tri-mix で解消**＝off-centre と dead-ahead（centred/narrow/double）を同時に通す／ far off-centre と slalom は残る bound | 下記「天井突破」「多コース評価 / 容量増で解消」参照（実 C++ benchmark で検証） |
 | Mode A: **障害物のスレッディング（回り込み通過）** | ❌ 学習単体では天井 → ✅ **ハイブリッドで解決** | 下記参照 |
 
-要点: **side-selection と open goal 到達は小型モデルでも実機構で動く**。**off-centre gap（壁のスロット貫通）は、当初は天井だったが、token attention で aim できる transformer に footprint-aware 損失を足すと pure-generative で貫通できるようになった**（後述、実 C++ benchmark で検証）。一方 **slalom（S 字二段壁）と Mode A の obstacle-threading（閉ループ分布シフト）は依然天井**で、小型・合成学習モデル単体では解けない — **classical search / reactive 法が本来勝つ領域**であり、本リポジトリが 8 種の classical planner と 2 種の reactive controller を併載する理由そのもの。そして **ハイブリッド**（generative 提案 + classical fallback）は残る天井も超え、かつ**任意地図での完全性保証**を与える: Mode B の slalom は learned+JPS の hybrid が解く（後述）。
+要点: **side-selection と open goal 到達は小型モデルでも実機構で動く**。**off-centre gap（壁のスロット貫通）は、当初は天井だったが、token attention で aim できる transformer に footprint-aware 損失を足すと pure-generative で貫通できるようになった**（後述、実 C++ benchmark で検証）。さらに **「天井」とされた *slalom*（S 字二段壁）と *far off-centre gap* は、実はアーキの限界ではなく 2 つのデータバグ（壁を擦る教師＋train/inference の patch 不一致）だった** — collision-clean な台形教師と deployment 一致の patch で直すと、no-fan の **attnseq ファミリが本ベンチ全 8 コースを純生成で貫通（8/8）**する（後述、実 C++ benchmark で検証、`diffusion_global_costmap_attnseq_v0` 出荷）。残る本質的天井は **Mode A の obstacle-threading（閉ループ分布シフト）**で、ここは **classical search / reactive 法が本来勝つ領域**。そして **ハイブリッド**（generative 提案 + classical fallback）は**任意地図での完全性保証**を与える（本ベンチのカタログ・コースは純生成で足りるが、out-of-distribution な地図は hybrid が担保）。
 
 ## 何が効くか（v0.6.0 で出荷済み）
 
@@ -85,58 +85,53 @@ aim は出るが、これだけでは benchmark の gap は通らなかった（
 
 小容量では centred を足すと**目玉の off-centre を失う**＝データ配合では解けない**容量限界**だった。しかし **transformer を dim 64 / 8 heads / 3 blocks に増強**し centred を tri-mix すると、**off-centre と dead-ahead（centred/narrow/double）を同時に通す**——トレードオフが**解消**した（実 C++ `planner_benchmark` で検証、出荷モデル）。**残る bound は *far off-centre gap***（同じ off-axis スロットを前方約 3 m に押したもの）で、大容量モデルはこれを通さない＝容量は「種類の幅」を買うが far-forward 変種までは届かない。GPU 学習は run 間非決定で off-centre / far は borderline だが、**出荷アーティファクトが off-centre + dead-ahead を通すことは実 benchmark で検証済み**（checksum 固定）。
 
-更新後の 3 ファミリ競合範囲:
+更新後の 4 ファミリ競合範囲（実 C++ `planner_benchmark`、純生成・fallback なし）:
 
-| コース | flow | transformer | recurrent | 解釈 |
-|---|:-:|:-:|:-:|---|
-| *clear* / *side obstacle* | ✅ | ✅ | ✅ | 全員 |
-| *centred gap* / *narrow gap* / *double gate*（直進の隙間） | ✅ | ✅ | ✅ | 全員（transformer は容量増で獲得） |
-| *off-centre gap* | ❌ | ✅ | ❌ | transformer のみ（attention で aim） |
-| *far off-centre gap* | ❌ | ❌ | ❌ | 純生成は届かず（hybrid 領域） |
-| *slalom*（S 字二段壁） | ❌ | ❌ | ❌ | hybrid のみ |
+| コース | flow | transformer | recurrent | **attnseq** | 解釈 |
+|---|:-:|:-:|:-:|:-:|---|
+| *clear* / *side obstacle* | ✅ | ✅ | ✅ | ✅ | 全員 |
+| *centred gap* / *narrow gap* / *double gate*（直進の隙間） | ✅ | ✅ | ✅ | ✅ | 全員 |
+| *off-centre gap* | ❌ | ✅ | ❌ | ✅ | transformer / attnseq（attention で aim） |
+| *far off-centre gap* | ❌ | ❌ | ❌ | **✅** | **attnseq のみ** |
+| *slalom*（S 字二段壁） | ❌ | ❌ | ❌ | **✅** | **attnseq のみ** |
 
-transformer は**もはや「相補的な片側」ではなく、off-axis も dead-ahead も通す上位の proposer** になった（off-centre は依然 transformer 専有）。次の本筋は *far off-centre* / *slalom* の純生成化。
+transformer は off-axis も dead-ahead も通す proposer（6/8）。そして **attnseq ファミリは全 8 コースを純生成で貫通（8/8）** — 長く「天井」とされた *far off-centre* と *slalom* を含む。これは下記の通り**アーキの天井ではなくデータバグ**だった。
 
-#### slalom を純生成で試した結果（2026-06、データでは解けない＝アーキの問題）
+#### slalom と far off-centre は「アーキの天井」ではなく **データバグ**だった（2026-06 解決）
 
-*slalom*（二段互い違い壁の S 字・2 回横断）を純生成で通すべく、**S 字 expert データ**を実装した
-（`make_costmap_path_slalom_dataset`：二壁パッチ + 二山ガウシアンの S 字経路、`dataset='slalom'`）。
-だが大容量 transformer で検証した結果、**データを足しても通らない**:
+長い間 *slalom*（二段互い違い壁の S 字・2 回横断）と *far off-centre gap* は純生成の天井とされ、
+3 系統のアーキ（容量増 transformer・MLP head・初期 attnseq）が**同じ学習 loss プラトー（fp=0 で ~0.14）に
+収束**したため「アーキの問題」と結論していた。**これは誤診だった。** C++ validator を Python で忠実に
+再現して掘ったところ、原因は**2 つのデータバグ**で、直すと no-fan の attnseq が **8/8** で貫通した。
 
-- **`'both'` に slalom を quad-mix** → slalom は *no path* のまま、かつ off-centre を巻き添えで喪失（容量超過、loss 0.11）。
-- **slalom 単独で全力学習**（240 サンプル全部 slalom）→ それでも *no path*、しかも**学習 loss が 0.32** と単一ふくらみタスク（~0.04）の桁違いに高く、**S 字を fit すること自体に失敗**。
+**バグ① 教師経路が壁を擦っていた。** 旧 slalom expert は二山**ガウシアン**で、slot offset に達するのが
+各壁バンドの**中心の一瞬だけ**。壁は forward 方向に厚みを持つので、バンド前縁・後縁では path がまだ壁の中
+を通っていた＝**教師自体が衝突経路**（footprint validator 上で max occupancy 0.5〜1.0）。何で学習しても
+壁を擦る経路に収束し、loss も下がりきらない（0.14 の床）。
+→ **修正**: 各壁バンド全域で slot offset を**保持する台形（plateau）S**（`_plateau_track`、max occupancy ~0）。
 
-**原因はデータでなくアーキテクチャ**: 本モデルは K 候補を expert ± **横一律オフセットの fan** で出す。
-S 字は**両方の隙間を同時に**通す必要があり、横にずらすと**両クロッシングが同時に隙間を外す**ので
-K 候補が全滅 → validator に生存者なし。加えて 2 回横断 S の decode 自体が現容量で難しい。
+**バグ② 学習 patch と推論 patch が食い違っていた。** 学習は手書きの `_gap_patch`（`int(x_lo·S/fwd)` で
+行を切る）、推論は C++ `OnnxPathModel::alignedPatch`（各セル中心 `fwd*(row+0.5)/S` で実コストマップを
+サンプル）。薄い壁では**まる 1 行ズレる**ことがあり、モデルは手製 patch では S 字を出すのに、実再サンプル
+patch では直進に退化していた。
+→ **修正**: 学習 patch も**同じ細グリッド markWall + resample** で生成（`_resampled_aligned_patch`）。
+これで train と inference の patch 分布が一致。
 
-→ slalom 純生成には**候補多様化機構の作り直し**（横一律 fan でなく per-crossing 摂動 or サンプリング）
-**または逐次出力族**が要る、というのが実証的結論。`make_costmap_path_slalom_dataset` は将来の
-アーキ作業のために残し、**出荷 `'both'` からは外して**ある（slalom は引き続き hybrid 完全性が担保）。
+**残りは no-fan アーキが担う。** transformer / recurrent は K 候補を expert ± **横一律オフセットの fan**
+で出すため S 字を表現できない（横にずらすと両クロッシングが同時に隙間を外す）。`CostmapPathAttnSeqPlanner`
+は fan を廃し、K 個の学習 seed ＋ **per-step クロスアテンションで costmap memory を参照する逐次 GRU
+decoder** で、候補が**自由に S 字を取れる**。
 
-**さらに梃子を切り分けた（2026-06、単一修正では解けない）**: slalom 単独学習で各要因を分離:
+**結果（実 C++ `planner_benchmark`、純生成・fallback なし）**: 上記 2 修正済みデータの **5-way mix
+（side + off-centre/far gap + centred/narrow gap + double gate + slalom、`dataset='all'`）**で attnseq を
+学習すると、**全 8 コースを貫通（8/8、すべて 12-pose のモデル経路）** — slalom（~9.9m）も far off-centre
+gap（~6.7m）も含む。v0.11.0 transformer（6/8、slalom・far off-centre は no-path）を**厳密に上回る**。
+出荷: `diffusion_global_costmap_attnseq_v0`（model_zoo、4 つ目の learned Mode B family）。
 
-| 変更 | 学習 loss | slalom |
-|---|--:|:-:|
-| 既定（footprint=3, 単 Linear head） | 0.32 | ❌ |
-| footprint=0（clearance 項を外す） | 0.14 | ❌ |
-| MLP head（2 層）+ footprint=3 | 0.32 | ❌ |
-
-- **footprint 損失が S と本質的に衝突**: S は二段壁の「間」を縫うので壁に近く、footprint 項を下げきれず損失を支配（0.32 のうち ~0.18 が footprint）。外すと（0.14）clearance 最適化が消える。
-- **fit 自体が難**: footprint を外しても loss 0.14（単一ふくらみ ~0.04 の 3 倍）で、**MLP head に強化しても改善せず**（0.32 のまま）＝ head 容量が律速ではない。
-- 横一律 fan を 0 にした中央候補（＝素の S）でも通らない＝ fit 不足が一次律速。
-
-**アーキ全面作り直しでも越えられなかった（2026-06、"大改修" 実験）**: 上の切り分けを受け、**アーキファミリそのものを別系統に作り直した** `CostmapPathAttnSeqPlanner` を実装した（cross-attention 知覚 tokenizer + **per-step クロスアテンションで costmap memory を参照する逐次 GRU decoder** + K 個の学習 seed、**横一律 fan を廃止**）。slalom 単独で全力学習した結果:
-
-| アーキ | fp=3.0 | fp=0（素の再構成） |
-|---|--:|--:|
-| transformer（v0.11.0 出荷） | 0.32 | 0.14 |
-| MLP head | 0.32 | — |
-| **attnseq（大改修）** | **0.317** | **0.1448** |
-
-**3 系統が同一プラトーに収束した**。容量増（v0.11.0）でも、head 強化（MLP）でも、知覚・decoder の全面作り直し（attnseq）でも、fp=0 の素の再構成は ~0.14 で頭打ち。残差 RMS ≈0.38 は「S 字振幅 1.8 の半分しか描けず両ゲートを実際には通らない」水準で、benchmark でも *no path*。本質的難所は **2 回横断の位相を gate 位置にロックする精度**であり、**pointwise MSE 回帰のアーキを取り替えても超えられない**ことが実証された。
-
-**結論**: slalom は data / 容量 / footprint / head の**単一修正では解けず**、さらに**アーキファミリの全面作り直し（attnseq）でも transformer と同一プラトー**だった。残る本筋は「より大きいモデル」ではなく**定式化の転換** — (a) **回帰でなくサンプリング系出力**（diffusion / flow ヘッドで多様な候補を出し、決定論的 footprint validator が貫通する 1 本を選ぶ＝本リポジトリの "propose / dispose" 思想そのもの）、(b) **costmap 解像度を上げる**（24→48 で gate を空間的に鋭く）、(c) **位相にスラックを許す損失**（DTW / Chamfer）。`make_costmap_path_slalom_dataset` と `attnseq` 系の実装はこの将来研究のために残す。現実解として slalom は引き続き **hybrid プランナ**が担保。
+**教訓**: 「3 アーキが同じプラトー」は強力に**アーキ天井**を示唆したが、真因は**到達不能（衝突する）教師を
+fit させていた**ことと**train/inference の入力分布ズレ**だった。collision-clean な教師と deployment 一致の
+入力を用意すれば、純生成提案は本ベンチの全コースを通す。hybrid は引き続き**任意地図の完全性**を担保するが、
+本ベンチのカタログ・コースに関しては純生成だけで足りる。
 
 ### Mode A: 障害物スレッディング（回り込み通過）
 
@@ -167,4 +162,4 @@ learned Mode A は open では goal 到達するが、`controller_benchmark` の
 
 ## 結論
 
-小型・合成学習モデルでも **side-selection と open goal 到達は実機構で動く**（v0.6.0 出荷）。さらに **off-centre gap（壁のスロット貫通）は、token attention で aim できる transformer に footprint-aware（validator-aware）損失を足すと pure-generative で貫通できる**ことを実 C++ benchmark で示した（flow / recurrent は不可）——「提案ステージの限界は表現とロスの問題で、必ずしも本質的天井ではない」。一方 **slalom（多段横断）と Mode A の obstacle-threading（閉ループ分布シフト）は依然学習単体の天井**で、classical が勝つ領域。そして **ハイブリッド**は残る天井を超え、かつ**任意地図での完全性を保証**する: Mode B planner は `fallback_planner_plugin`（learned 提案 → classical search）、Mode A controller は `fallback_controller_plugin`（learned → classical reactive）で、いずれも**全シナリオを解く**。境界を正直に測り、学習で押し上げられる所は押し上げ（footprint-aware gap）、残りは classical と組んで完全性を取る——これが「generative propose / classical dispose」設計の価値であり、両者を同一リポジトリ・同一土俵に載せている理由である。
+小型・合成学習モデルでも **side-selection と open goal 到達は実機構で動く**（v0.6.0 出荷）。さらに **off-centre gap（壁のスロット貫通）は、token attention で aim できる transformer に footprint-aware（validator-aware）損失を足すと pure-generative で貫通できる**ことを実 C++ benchmark で示した（flow / recurrent は不可）。そして **「天井」とされた *slalom* と *far off-centre gap* は、3 アーキが同じ loss プラトーに収束したことから当初アーキ限界と誤診したが、実は 2 つのデータバグ（壁を擦る台形未満の教師＋train/inference の patch サンプリング不一致）だった** — collision-clean な台形教師と deployment 一致の patch で直すと、no-fan の **attnseq ファミリが本ベンチ全 8 コースを純生成で貫通（8/8）**する（実 C++ benchmark で検証）。これは「提案ステージの限界は**表現・ロス・そしてデータ分布の整合**の問題で、必ずしも本質的天井ではない」ことの最も強い実証である。残る学習単体の天井は **Mode A の obstacle-threading（閉ループ分布シフト）**で、classical が勝つ領域。そして **ハイブリッド**は**任意地図での完全性を保証**する: Mode B planner は `fallback_planner_plugin`（learned 提案 → classical search）、Mode A controller は `fallback_controller_plugin`（learned → classical reactive）で、いずれも**全シナリオを解く**。境界を正直に測り、学習で押し上げられる所は押し上げ、残りは classical と組んで完全性を取る——これが「generative propose / classical dispose」設計の価値であり、両者を同一リポジトリ・同一土俵に載せている理由である。
