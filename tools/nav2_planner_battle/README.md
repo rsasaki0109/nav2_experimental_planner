@@ -15,9 +15,10 @@ Two modes:
   thread the dead-ahead *frontal* block while the plain learned/transformer/recurrent
   models stall in front of it.
 - **🧭 Mode B · Duel** — the global `nav2_core::GlobalPlanner` plugins (RRT*, RRT-Connect,
-  PRM, D* Lite, JPS, Lazy Theta*, ARA*, Visibility graph, and the generative Mode B
-  models) draw their `createPlan` paths simultaneously. Shortest valid path wins; the
-  scoreboard also shows planning time.
+  PRM, D* Lite, JPS, Lazy Theta*, ARA*, Visibility graph, generative Mode B models, and
+  **kinematics-conditioned** omni / diff-drive / Ackermann variants) draw their
+  `createPlan` paths simultaneously. Shortest valid path wins; the scoreboard also shows
+  planning time.
 
 ## Play
 
@@ -55,11 +56,9 @@ The traces come from a small ROS 2 exporter that runs the real plugins:
 
 ```bash
 # (build the workspace first; needs the onnxruntime prefix for the generative models)
-ros2 run nav2_planner_benchmarks battle_trace > tools/nav2_planner_battle/battle_data.json
-# wrap it for file:// loading (Chrome blocks fetch() of local files)
-printf 'window.BATTLE_DATA = ' > tools/nav2_planner_battle/battle_data.js
-cat tools/nav2_planner_battle/battle_data.json >> tools/nav2_planner_battle/battle_data.js
-printf ';\n' >> tools/nav2_planner_battle/battle_data.js
+tools/sync_battle_data.sh
+# CI regression gate (fresh export must match committed battle_data.json):
+python3 tools/check_battle_trace.py tools/nav2_planner_battle/battle_data.json /tmp/fresh.json
 ```
 
 `battle_trace` ([src](../../benchmarks/nav2_planner_benchmarks/src/battle_trace.cpp))

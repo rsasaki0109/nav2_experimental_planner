@@ -28,7 +28,7 @@
 | Mode | What | Play |
 |---|---|---|
 | **🏁 Race** | Controllers race to goal (VFH+, ND, learned, threading, …) | [frontal](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=A&s=1) · [maze](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=A&s=4) |
-| **🧭 Duel** | Global planners draw paths (RRT*, JPS, Diffusion, …) | [slalom](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=B&s=6) · [hard maze](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=B&s=9) |
+| **🧭 Duel** | Global planners draw paths (RRT*, JPS, Diffusion, omni/diff/Ackermann, …) | [slalom](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=B&s=6) · [kinematics gap](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=B&s=3) · [hard maze](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=B&s=9) |
 | **🏆 Championship** | Points across all scenarios | [Race](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=C) · [Duel](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=C&sub=B) |
 
 Real `nav2_core` plugins — no scripted winners. Traces: `ros2 run nav2_planner_benchmarks battle_trace` · GIFs: [`tools/record_battle_gif.py`](tools/record_battle_gif.py)

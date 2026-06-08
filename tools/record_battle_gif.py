@@ -47,7 +47,7 @@ _JOBS = [
     # mode, scenario_idx, outfile, stride, duration, upscale
     ('A', 1, 'battle_race.gif', 2, 0.07, 1.15),
     ('A', 4, 'battle_maze.gif', 2, 0.08, 1.0),
-    ('B', 6, 'battle_duel.gif', 2, 0.09, 1.0),
+    ('B', 3, 'battle_duel.gif', 2, 0.09, 1.0),
 ]
 
 

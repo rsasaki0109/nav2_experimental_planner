@@ -386,6 +386,21 @@ int main(int argc, char ** argv)
         "costmap_flow.onnx",
         {rclcpp::Parameter("fallback_planner_plugin",
           std::string("nav2_jps_planner::JPSPlanner"))})},
+    {"Diffusion omni", "nav2_diffusion_global_planner::DiffusionGlobalPlanner",
+      "kinematics R=0 (omni)",
+      onnxB(
+        "diffusion_global_costmap_kinematics.onnx",
+        {rclcpp::Parameter("min_turn_radius", 0.0)})},
+    {"Diffusion diff", "nav2_diffusion_global_planner::DiffusionGlobalPlanner",
+      "kinematics R=0.3 (diff-drive)",
+      onnxB(
+        "diffusion_global_costmap_kinematics.onnx",
+        {rclcpp::Parameter("min_turn_radius", 0.3)})},
+    {"Diffusion Ackermann", "nav2_diffusion_global_planner::DiffusionGlobalPlanner",
+      "kinematics R=1.5 (Ackermann)",
+      onnxB(
+        "diffusion_global_costmap_kinematics.onnx",
+        {rclcpp::Parameter("min_turn_radius", 1.5)})},
   };
 
   std::vector<ModeBScenario> bScenarios = {
