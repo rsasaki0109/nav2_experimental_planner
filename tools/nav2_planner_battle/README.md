@@ -4,7 +4,7 @@ A browser battle game that replays the repo's **real** Nav2 planners and control
 head-to-head. No scripted winners — every fighter is the actual plugin, replayed from
 traces recorded by running it against a live `nav2_costmap_2d` costmap.
 
-![Mode A race — frontal block](docs/battle_frontal.png)
+![Mode A race — frontal block](../../docs/battle_race.gif)
 
 Two modes:
 
@@ -67,3 +67,9 @@ mirrors `controller_benchmark.cpp` / `planner_benchmark.cpp` exactly — it repo
 same real behaviour, only as JSON instead of Markdown. The Markdown reports remain the
 canonical comparison ([docs/controller_comparison.md](../../docs/controller_comparison.md),
 [docs/planner_comparison.md](../../docs/planner_comparison.md)).
+
+Refresh the README GIFs with:
+
+```bash
+python3 tools/battle_gif_demo.py   # writes docs/battle_race.gif, battle_maze.gif, battle_duel.gif
+```

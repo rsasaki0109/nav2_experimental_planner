@@ -1,31 +1,52 @@
-<p align="center">
-  <img src="docs/demo.gif" width="640" alt="DiffusionController: multimodal candidates (best=green / safe=blue / rejected=red) navigating around an obstacle">
-</p>
-
-<p align="center"><em>Real pipeline output: the generative model proposes multimodal candidates, the footprint safety layer rejects the ones (red lines) that enter the obstacle inflation band (red region), and the scorer picks the best candidate (green) — avoiding the obstacle while keeping clearance.</em></p>
-
-# Nav2PlannerBattle
+# Nav2PlannerBattle ⚔️
 
 [![CI](https://github.com/rsasaki0109/Nav2PlannerBattle/actions/workflows/ci.yml/badge.svg)](https://github.com/rsasaki0109/Nav2PlannerBattle/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/rsasaki0109/Nav2PlannerBattle)](https://github.com/rsasaki0109/Nav2PlannerBattle/releases)
 [![ROS 2 Jazzy](https://img.shields.io/badge/ROS_2-Jazzy-22314E?logo=ros&logoColor=white)](https://docs.ros.org/en/jazzy/)
+[![Play Battle](https://img.shields.io/badge/▶_Play-Battle_online-ffd34d?style=for-the-badge)](https://rsasaki0109.github.io/Nav2PlannerBattle/)
 
-**A Generative Navigation Framework for Nav2 — where every planner and controller battles head-to-head.** ⚔️
+**Real Nav2 planners & controllers battle head-to-head — in your browser and in benchmarks.**
 
 > Learned models propose. Classical safety disposes. Nav2 executes.
 
-> 🎮 **Watch them fight:** the real plugins race and duel in the browser —
-> [**Play online**](https://rsasaki0109.github.io/Nav2PlannerBattle/) ·
-> [source](tools/nav2_planner_battle) (details in the Planner Battle section below).
+<p align="center">
+  <a href="https://rsasaki0109.github.io/Nav2PlannerBattle/"><img src="docs/battle_race.gif" width="640" alt="Nav2 Planner Battle — Mode A race: threading threads the frontal block while learned models stall"></a>
+</p>
 
-`Nav2PlannerBattle` is not a project that replaces Nav2. It is an OSS foundation that makes the most of Nav2's existing architecture (Behavior Tree / Lifecycle Node / Planner & Controller plugins / Costmap / Collision Monitor) and, on top of it, **safely connects generative navigation models** from the Diffusion / Flow Matching / Consistency / Transformer / World-Model families.
+<p align="center"><strong><a href="https://rsasaki0109.github.io/Nav2PlannerBattle/">▶ Play Nav2 Planner Battle online</a></strong> — no install, real plugin traces from <code>battle_trace</code>.</p>
+
+<p align="center">
+  <img src="docs/battle_maze.gif" width="310" alt="Micro-mouse easy maze race">
+  &nbsp;
+  <img src="docs/battle_duel.gif" width="310" alt="Mode B planner duel on slalom">
+</p>
+
+<p align="center"><em><strong>Mode A · Race</strong> — controllers run closed-loop (micro-mouse mazes included). <strong>Mode B · Duel</strong> — global planners draw paths; shortest wins. <strong>Championship</strong> — strength ranking across every scenario. Live HUD shows steps, path length &amp; planning ms.</em></p>
+
+---
+
+## Planner Battle
+
+| Mode | What happens | Try it |
+|---|---|---|
+| **🏁 Race** | VFH+, ND, learned, transformer, recurrent, **threading**, hybrid — same arena, first to goal | [frontal block](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=A&s=1) · [micro-mouse easy](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=A&s=4) |
+| **🧭 Duel** | RRT*, JPS, Lazy Theta*, Diffusion, … — `createPlan` paths drawn together | [slalom](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=B&s=6) · [micro-mouse hard](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=B&s=9) |
+| **🏆 Championship** | Aggregate points across all scenarios | [Race](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=C) · [Duel](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=C&sub=B) |
+
+No scripted winners — every fighter is the **actual** `nav2_core` plugin replayed from traces. Regenerate with `ros2 run nav2_planner_benchmarks battle_trace`; GIFs with [`tools/battle_gif_demo.py`](tools/battle_gif_demo.py). Details: [`tools/nav2_planner_battle`](tools/nav2_planner_battle).
+
+---
+
+## What is this?
+
+`Nav2PlannerBattle` is not a project that replaces Nav2. It is an OSS foundation that makes the most of Nav2's existing architecture (Behavior Tree / Lifecycle Node / Planner & Controller plugins / Costmap / Collision Monitor) and, on top of it, **safely connects generative navigation models** from the Diffusion / Flow Matching / Consistency / Transformer / World-Model families — and **benchmarks every planner & controller side by side**.
 
 In addition, it experimentally collects **planners absent from upstream Nav2 — not only generative ones, but classical ones too.** As classical planners Nav2 does not ship, it implements, each as a `nav2_core::GlobalPlanner`: the **sampling-based** **RRT\*** (asymptotically optimal) and **RRT-Connect** (bidirectional, fast in narrow passages) in [nav2_rrt_planner](classical_planners/nav2_rrt_planner), **PRM** (Probabilistic Roadmap) in [nav2_prm_planner](classical_planners/nav2_prm_planner), the **incremental-search** **D\* Lite** (repairs only changed cells to cut replanning cost) in [nav2_dstar_lite_planner](classical_planners/nav2_dstar_lite_planner), the **grid-search speed-up** **JPS** (Jump Point Search, prunes symmetry to accelerate A\*) in [nav2_jps_planner](classical_planners/nav2_jps_planner), the **any-angle** **Lazy Theta\*** (straight-line paths not bound to grid directions, with lazy line-of-sight checks) in [nav2_lazy_theta_star_planner](classical_planners/nav2_lazy_theta_star_planner), the **anytime** **ARA\*** (progressively improves a bounded-suboptimal solution within a time budget) in [nav2_ara_star_planner](classical_planners/nav2_ara_star_planner), and the **geometric (continuous-space)** **visibility graph** (exact shortest straight-line path connecting obstacle convex corners) in [nav2_visibility_graph_planner](classical_planners/nav2_visibility_graph_planner). An offline table comparing these 8 on shared scenarios is in [docs/planner_comparison.md](docs/planner_comparison.md) (reproducible with `nav2_planner_benchmarks`). On the controller (local) side there are also 2 reactive avoidance controllers absent from Nav2: **VFH+** (Vector Field Histogram Plus, steers toward free valleys via a polar histogram) in [nav2_vfh_controller](reactive_controllers/nav2_vfh_controller) and **ND** (Nearness Diagram, gap selection + safety bias to keep to the corridor center) in [nav2_nd_controller](reactive_controllers/nav2_nd_controller), both as `nav2_core::Controller`.
 
 - **Scope:** AMR / Delivery Robot / Warehouse Robot / Service Robot
 - **Out of Scope:** Manipulation, MoveIt, Humanoid, Full VLA, Multi-Agent Planning (not primary goals)
-- **Core Positioning:** A Nav2-native Generative Navigation Framework
+- **Core Positioning:** Battle the planners, then adopt the winners on Nav2
 
 ---
 
@@ -118,6 +139,10 @@ flowchart LR
 ## Costmap-conditioned generation (an OSS-gap implementation)
 
 <p align="center">
+  <img src="docs/demo.gif" width="480" alt="DiffusionController: multimodal candidates (best=green / safe=blue / rejected=red) navigating around an obstacle">
+</p>
+
+<p align="center">
   <img src="docs/costmap_demo.gif" width="480" alt="costmap-conditioned CostmapFlowPlanner: as the obstacle sweeps left/right, the generated candidates veer to the opposite side">
 </p>
 
@@ -157,12 +182,6 @@ course **assets and geometry are generated and unit-tested in-tree**; the
 closed-loop *numbers* require a real ROS host (the dev sandbox blocks inter-process
 DDS), so none are fabricated here — see [docs/simulation.md](docs/simulation.md)
 section 10.5.
-
-## Planner Battle (browser game) ⚔️
-
-<p align="center"><img src="tools/nav2_planner_battle/docs/battle_frontal.png" width="640" alt="Nav2 Planner Battle — Mode A race on the frontal block"></p>
-
-<p align="center"><em>A self-contained browser game that replays the repo's <strong>real</strong> planners and controllers head-to-head — no scripted winners. <strong>Mode A · Race</strong>: the local controllers race a unicycle through a shared arena (watch the <strong>threading</strong> model thread the dead-ahead block while the plain learned/transformer/recurrent models stall). <strong>Mode B · Duel</strong>: the global planners draw their <code>createPlan</code> paths simultaneously, shortest valid path wins. <strong><a href="https://rsasaki0109.github.io/Nav2PlannerBattle/">Play online</a></strong> or open <a href="tools/nav2_planner_battle/index.html">tools/nav2_planner_battle/index.html</a> locally — traces come from <code>ros2 run nav2_planner_benchmarks battle_trace</code>, mirroring the benchmarks exactly. Includes <strong>micro-mouse easy/hard</strong> mazes and a <strong>Championship</strong> strength ranking. See <a href="tools/nav2_planner_battle/README.md">tools/nav2_planner_battle</a>.</em></p>
 
 ## Documentation map
 
