@@ -34,7 +34,10 @@ xdg-open tools/nav2_planner_battle/index.html      # Linux
 > run [`.github/workflows/pages.yml`](../../.github/workflows/pages.yml) automatically.
 
 Controls: pick a **scenario**, **▶ Play**, scrub **speed**, **⟲ Restart**, and toggle
-**Mode A / Mode B / Championship**. Two **micro mouse** mazes: **easy** (4×4, 1.5 m cells,
+**Mode A / Mode B / Championship**. While a race or duel plays, a **live HUD** on the arena
+and extra leaderboard columns show steps, path length, distance to goal (Mode A), and
+drawing path length + planning ms (Mode B) — the same numbers as the benchmark reports.
+Two **micro mouse** mazes: **easy** (4×4, 1.5 m cells,
 exploration run) and **hard** (8×8, 0.75 m cells, contest speed run) — SW start → centre
 goal, inspired by All Japan MicroMouse.
 **Championship** aggregates strength points across all scenarios — toggle **Race** (Mode A

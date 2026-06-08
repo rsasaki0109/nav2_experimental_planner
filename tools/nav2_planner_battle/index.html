@@ -57,9 +57,11 @@
   .b-collision{background:rgba(255,93,108,.18);color:var(--bad)}
   .b-ok{background:rgba(55,224,154,.18);color:var(--good)}
   .b-fail{background:rgba(255,93,108,.18);color:var(--bad)}
+  .b-live{background:rgba(90,209,255,.15);color:var(--accent)}
   .crown{color:var(--gold)}
   .foot{color:var(--muted);font-size:11.5px;padding:6px 20px 22px}
   code{background:#0a1330;border:1px solid #25305c;border-radius:6px;padding:1px 6px;color:var(--accent)}
+  .hudHint{color:var(--muted);font-size:11px;margin-top:8px}
 </style>
 </head>
 <body>
@@ -97,6 +99,7 @@
     <div class="card">
       <h2 id="boardTitle">Leaderboard</h2>
       <table id="board"></table>
+      <div class="hudHint" id="hudHint"></div>
     </div>
   </div>
 </div>
@@ -231,6 +234,86 @@ function drawGoal(x,y){
 }
 function colorFor(i){ return COLORS[i%COLORS.length]; }
 
+function pathLenTo(path, idx){
+  let total = 0;
+  for(let k = 1; k <= idx; k++){
+    total += Math.hypot(path[k][0]-path[k-1][0], path[k][1]-path[k-1][1]);
+  }
+  return total;
+}
+
+function frameIdxA(f){ return Math.min(t, f.path.length-1); }
+
+function liveMetricsA(f){
+  const idx = frameIdxA(f);
+  const g = curScenario().goal;
+  const p = f.path[idx];
+  return {
+    steps: idx,
+    length: pathLenTo(f.path, idx),
+    dist: Math.hypot(g[0]-p[0], g[1]-p[1]),
+    done: idx >= f.path.length-1,
+  };
+}
+
+function liveMetricsB(f){
+  if(!f.success || !f.path.length) return null;
+  const frac = Math.min(1, t / maxFrames());
+  const upto = Math.max(1, Math.floor(frac * f.path.length));
+  return {
+    length: pathLenTo(f.path, upto-1),
+    total: f.length,
+    time_ms: f.time_ms,
+    progress: frac,
+    done: frac >= 1,
+  };
+}
+
+function drawHud(){
+  if(isChamp()) return;
+  const rows = (mode==='modeA' ? rankA() : rankB()).slice(0, 5);
+  const lineH = 15;
+  const panelH = 24 + rows.length * lineH;
+  const px = 10, py = H - panelH - 10, pw = 228;
+  ctx.save();
+  ctx.fillStyle = 'rgba(14,20,42,0.9)';
+  ctx.strokeStyle = '#3a4a7a';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(px, py, pw, panelH, 8);
+  ctx.fill();
+  ctx.stroke();
+  ctx.font = 'bold 10px system-ui';
+  ctx.fillStyle = '#8b97c4';
+  ctx.textAlign = 'left';
+  const title = mode==='modeA' ? 'LIVE · race' : 'LIVE · duel';
+  ctx.fillText(`${title}  ·  frame ${t}/${maxFrames()}`, px+10, py+16);
+  ctx.font = '10px system-ui';
+  rows.forEach((r,k)=>{
+    const y = py + 30 + k*lineH;
+    ctx.fillStyle = colorFor(r.i);
+    circle(px+14, y-3, 4);
+    ctx.fillStyle = '#e8ecff';
+    if(mode==='modeA'){
+      const m = liveMetricsA(r.f);
+      const tag = m.done ? r.f.outcome : '…';
+      ctx.fillText(
+        `${r.f.label}: ${m.steps} st · ${m.length.toFixed(1)} m · ${m.dist.toFixed(2)} m → [${tag}]`,
+        px+24, y);
+    } else {
+      const m = liveMetricsB(r.f);
+      if(m){
+        const len = m.done ? m.total.toFixed(2) : m.length.toFixed(2);
+        ctx.fillText(`${r.f.label}: ${len} m · ${m.time_ms.toFixed(1)} ms`, px+24, y);
+      } else {
+        ctx.fillStyle = '#8b97c4';
+        ctx.fillText(`${r.f.label}: no path`, px+24, y);
+      }
+    }
+  });
+  ctx.restore();
+}
+
 function drawModeA(){
   drawArena();
   const fs = fighters();
@@ -254,6 +337,7 @@ function drawModeA(){
       if(done && f.outcome==='reached'){ ctx.font='14px system-ui'; ctx.fillText('🏁',wx(p[0])+7,wy(p[1])-7); }
     }
   });
+  drawHud();
 }
 
 function drawModeB(){
@@ -271,6 +355,7 @@ function drawModeB(){
     const p=f.path[Math.min(upto,f.path.length)-1];
     ctx.fillStyle=col; circle(wx(p[0]),wy(p[1]),3);
   });
+  drawHud();
 }
 
 function drawChampionship(){
@@ -395,31 +480,46 @@ function buildBoard(){
       });
       tb.innerHTML=h;
     }
+    el('hudHint').textContent = '';
     return;
   }
   if(mode==='modeA'){
     const rows = rankA();
-    let h='<tr><th>#</th><th>Controller</th><th>Result</th><th class="r">Steps</th><th class="r">Clear</th></tr>';
+    const live = t > 0 && t < maxFrames();
+    let h='<tr><th>#</th><th>Controller</th><th>Result</th><th class="r">Steps</th>'
+      +'<th class="r">Len</th><th class="r">Dist</th><th class="r">Clear</th></tr>';
     rows.forEach((r,k)=>{
-      const win = k===0 && r.f.outcome==='reached';
+      const m = liveMetricsA(r.f);
+      const win = k===0 && (m.done ? r.f.outcome==='reached' : false);
+      const res = m.done ? badge(r.f.outcome) : '<span class="badge b-live">live</span>';
       h+=`<tr class="${win?'row-win':''}"><td>${win?'<span class="crown">👑</span>':k+1}</td>`+
         `<td><span class="dot" style="color:${colorFor(r.i)}"></span>${r.f.label}</td>`+
-        `<td>${badge(r.f.outcome)}</td><td class="r">${r.f.steps}</td>`+
-        `<td class="r">${r.f.clearance.toFixed(2)}</td></tr>`;
+        `<td>${res}</td><td class="r">${m.steps}</td>`+
+        `<td class="r">${m.length.toFixed(2)}</td><td class="r">${m.dist.toFixed(2)}</td>`+
+        `<td class="r">${m.done?r.f.clearance.toFixed(2):'—'}</td></tr>`;
     });
     tb.innerHTML=h;
+    el('hudHint').textContent = live
+      ? 'Live columns update each frame (steps · path length · distance to goal).'
+      : 'Matches docs/controller_comparison.md — play to watch live metrics.';
   } else {
     const rows = rankB();
+    const live = t > 0 && t < maxFrames();
     let h='<tr><th>#</th><th>Planner</th><th>Path</th><th class="r">Length</th><th class="r">ms</th></tr>';
     rows.forEach((r,k)=>{
-      const win = k===0 && r.f.success;
+      const m = liveMetricsB(r.f);
+      const win = k===0 && r.f.success && (!live || (m && m.done));
+      const len = m ? (m.done ? m.total : m.length) : null;
       h+=`<tr class="${win?'row-win':''}"><td>${win?'<span class="crown">👑</span>':k+1}</td>`+
         `<td><span class="dot" style="color:${colorFor(r.i)}"></span>${r.f.label}</td>`+
-        `<td><span class="badge ${r.f.success?'b-ok':'b-fail'}">${r.f.success?'path':'no path'}</span></td>`+
-        `<td class="r">${r.f.success?r.f.length.toFixed(2):'—'}</td>`+
+        `<td><span class="badge ${r.f.success?'b-ok':'b-fail'}">${r.f.success?(live&&!m?.done?'drawing':'path'):'no path'}</span></td>`+
+        `<td class="r">${len!=null?len.toFixed(2):'—'}</td>`+
         `<td class="r">${r.f.success?r.f.time_ms.toFixed(2):'—'}</td></tr>`;
     });
     tb.innerHTML=h;
+    el('hudHint').textContent = live
+      ? 'Path length grows as each planner\'s route is drawn; ms is median planning time.'
+      : 'Matches docs/planner_comparison.md — play to watch paths draw in.';
   }
 }
 
