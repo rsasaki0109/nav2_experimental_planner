@@ -92,5 +92,13 @@ python3 tools/record_battle_gif.py
 
 Matplotlib / RViz fallbacks: ``tools/battle_gif_demo.py``, ``tools/record_rviz_gif.py``.
 
-Optional gz-sim 3D capture: ``PYTHONPATH=generative/nav2_diffusion_sim python3 tools/gazebo_gif_demo.py``.
+**Gazebo Sim (3D TB3 · multi-fighter battle replay from ``battle_data.json``):**
+
+```bash
+source /opt/ros/jazzy/setup.bash
+python3 tools/record_battle_gazebo_gif.py
+# writes docs/battle_gazebo_race.gif, battle_gazebo_maze.gif, battle_gazebo_duel.gif
+```
+
+Optional gz-sim single-robot drive (A* route): ``PYTHONPATH=generative/nav2_diffusion_sim python3 tools/gazebo_gif_demo.py``.
 Course montage (RViz-style): ``PYTHONPATH=generative/nav2_diffusion_sim python3 tools/gazebo_courses_demo.py``.

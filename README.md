@@ -25,6 +25,18 @@
   <a href="https://rsasaki0109.github.io/Nav2PlannerBattle/?m=C"><img src="docs/battle_championship.gif" width="420" alt="Championship — aggregate rankings"></a>
 </p>
 
+<p align="center"><strong>Gazebo replay</strong> · multiple TurtleBot3 · same <code>battle_trace</code> paths</p>
+
+<p align="center">
+  <img src="docs/battle_gazebo_race.gif" width="310" alt="Gazebo — Mode A race">
+  &nbsp;
+  <img src="docs/battle_gazebo_maze.gif" width="310" alt="Gazebo — micro-mouse maze">
+</p>
+
+<p align="center">
+  <img src="docs/battle_gazebo_duel.gif" width="420" alt="Gazebo — planner duel">
+</p>
+
 ---
 
 ## Planner Battle
@@ -35,7 +47,7 @@
 | **🧭 Duel** | Global planners draw paths (RRT*, JPS, Diffusion, omni/diff/Ackermann, …) | [slalom](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=B&s=6) · [kinematics gap](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=B&s=3) · [hard maze](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=B&s=9) |
 | **🏆 Championship** | Points across all scenarios | [Race](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=C) · [Duel](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=C&sub=B) |
 
-Real `nav2_core` plugins — no scripted winners. Traces: `ros2 run nav2_planner_benchmarks battle_trace` · GIFs: [`tools/record_battle_gif.py`](tools/record_battle_gif.py) · **your ONNX:** [`docs/custom_model_battle.md`](docs/custom_model_battle.md)
+Real `nav2_core` plugins — no scripted winners. Traces: `ros2 run nav2_planner_benchmarks battle_trace` · browser GIFs: [`tools/record_battle_gif.py`](tools/record_battle_gif.py) · Gazebo GIFs: [`tools/record_battle_gazebo_gif.py`](tools/record_battle_gazebo_gif.py) · **your ONNX:** [`docs/custom_model_battle.md`](docs/custom_model_battle.md)
 
 ---
 
