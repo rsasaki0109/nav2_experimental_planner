@@ -1,14 +1,14 @@
-# Deploy Robot Escape Room to GitHub Pages (static browser game).
+# Deploy Nav2 Planner Battle to GitHub Pages (static browser game).
 # One-time repo setup: Settings → Pages → Build and deployment → Source: GitHub Actions.
-# Live URL: https://rsasaki0109.github.io/RobotEscapeRoom/
+# Live URL: https://rsasaki0109.github.io/Nav2PlannerBattle/
 
-name: Deploy Robot Escape Room (Pages)
+name: Deploy Nav2 Planner Battle (Pages)
 
 on:
   push:
     branches: [main]
     paths:
-      - 'tools/robot_escape_room/**'
+      - 'tools/nav2_planner_battle/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -37,7 +37,7 @@ jobs:
       - name: Upload battle site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: tools/robot_escape_room
+          path: tools/nav2_planner_battle
 
       - name: Deploy to GitHub Pages
         id: deployment

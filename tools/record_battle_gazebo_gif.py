@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2026 RobotEscapeRoom contributors
+# Copyright 2026 Nav2PlannerBattle contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-Record Robot Escape Room GIFs in real Gazebo Sim with TurtleBot3 waffle models.
+Record Nav2 Planner Battle GIFs in real Gazebo Sim with TurtleBot3 waffle models.
 
 Replays ``battle_data.json`` paths in a 3D gz-sim arena (same obstacle layout as
 ``battle_trace``). Multiple TB3 models race / draw paths simultaneously; frames
@@ -45,7 +45,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOCS = os.path.join(HERE, '..', 'docs')
-BATTLE_JSON = os.path.join(HERE, 'robot_escape_room', 'battle_data.json')
+BATTLE_JSON = os.path.join(HERE, 'nav2_planner_battle', 'battle_data.json')
 TB3_SDF = '/opt/ros/jazzy/share/turtlebot3_gazebo/models/turtlebot3_waffle/model.sdf'
 ROS_SETUP = '/opt/ros/jazzy/setup.bash'
 CAM_W, CAM_H = 960, 540
@@ -58,9 +58,9 @@ COLORS = [
 ]
 
 JOBS = [
-    ('A', 1, 'battle_gazebo_race.gif', 6, 'Robot Escape Room · Gazebo · Mode A frontal race'),
-    ('A', 4, 'battle_gazebo_maze.gif', 6, 'Robot Escape Room · Gazebo · micro-mouse easy'),
-    ('B', 3, 'battle_gazebo_duel.gif', 6, 'Robot Escape Room · Gazebo · Mode B off-centre gap'),
+    ('A', 1, 'battle_gazebo_race.gif', 6, 'Nav2 Planner Battle · Gazebo · Mode A frontal race'),
+    ('A', 4, 'battle_gazebo_maze.gif', 6, 'Nav2 Planner Battle · Gazebo · micro-mouse easy'),
+    ('B', 3, 'battle_gazebo_duel.gif', 6, 'Nav2 Planner Battle · Gazebo · Mode B off-centre gap'),
 ]
 
 

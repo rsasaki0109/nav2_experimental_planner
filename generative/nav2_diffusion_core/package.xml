@@ -4,7 +4,7 @@
   <name>nav2_diffusion_core</name>
   <version>0.11.0</version>
   <description>
-    ROS-independent core types and utilities for RobotEscapeRoom:
+    ROS-independent core types and utilities for Nav2PlannerBattle:
     time-indexed SE(2) trajectory representation and shared helpers. See
     docs/architecture.md sections 3.3 and 4.4.
   </description>

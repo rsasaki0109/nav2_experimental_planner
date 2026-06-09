@@ -1,4 +1,4 @@
-# Copyright 2026 RobotEscapeRoom contributors
+# Copyright 2026 Nav2PlannerBattle contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-Foxglove visualization bringup for RobotEscapeRoom.
+Foxglove visualization bringup for Nav2PlannerBattle.
 
 Starts foxglove_bridge (so Foxglove Studio can connect over ws://<host>:8765)
 and the candidate_markers node that converts the controller's TrajectoryCandidates

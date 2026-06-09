@@ -1,4 +1,4 @@
-// Copyright 2026 RobotEscapeRoom contributors
+// Copyright 2026 Nav2PlannerBattle contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Trace exporter for the RobotEscapeRoom web game (tools/robot_escape_room).
+// Trace exporter for the Nav2PlannerBattle web game (tools/nav2_planner_battle).
 // Runs the REAL planner / controller plugins (same as the benchmarks) and dumps
 // per-step traces to JSON so the browser viewer can replay an honest head-to-head:
 //   * Mode A (local controllers): closed-loop unicycle rollout on shared scenarios,
@@ -22,7 +22,7 @@
 // This deliberately mirrors controller_benchmark.cpp / planner_benchmark.cpp; it
 // reports the same real behaviour, only as machine-readable JSON instead of
 // Markdown. Reproduce with:
-//   ros2 run nav2_planner_benchmarks battle_trace > tools/robot_escape_room/battle_data.json
+//   ros2 run nav2_planner_benchmarks battle_trace > tools/nav2_planner_battle/battle_data.json
 // Custom ONNX fighters: docs/custom_model_battle.md
 
 #include <algorithm>
@@ -99,7 +99,7 @@ bool isAbsPath(const std::string & path)
 void printBattleHelp()
 {
   std::cerr <<
-    "battle_trace — export Robot Escape Room JSON from real Nav2 plugins.\n"
+    "battle_trace — export Nav2 Planner Battle JSON from real Nav2 plugins.\n"
     "\n"
     "Optional flags (stripped before rclcpp init):\n"
     "  --custom-controller LABEL ONNX [FAMILY]\n"

@@ -4,7 +4,7 @@
   <name>nav2_diffusion_benchmarks</name>
   <version>0.11.0</version>
   <description>
-    Benchmark scenarios, metrics, and reports for RobotEscapeRoom. Lets
+    Benchmark scenarios, metrics, and reports for Nav2PlannerBattle. Lets
     DiffusionController be compared fairly against MPPI / RPP / Smac on the same
     scenarios. See docs/benchmarking.md.
   </description>

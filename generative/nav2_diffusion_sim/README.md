@@ -1,6 +1,6 @@
 # nav2_diffusion_sim
 
-Closed-loop Gazebo **course assets** for `RobotEscapeRoom` (see
+Closed-loop Gazebo **course assets** for `Nav2PlannerBattle` (see
 [../docs/simulation.md](../docs/simulation.md)).
 
 Each obstacle course is defined **once** as a spec in
@@ -17,7 +17,7 @@ cannot drift apart:
 - the mission goals (`"label|x|y|yaw|timeout"`) consumed by `sim_mission.py`.
 
 The courses mirror the off-line `planner_benchmark` obstacle scenarios and the
-Robot Escape Room **micro-mouse** mazes so the **full closed-loop stack** (global
+Nav2 Planner Battle **micro-mouse** mazes so the **full closed-loop stack** (global
 planner + controller + costmap) can be measured on the same shapes the
 proposal-stage benchmark and browser game use. Micro-mouse courses omit the
 automatic perimeter box (the battle layout is open; boundary segments are already
@@ -28,8 +28,8 @@ in the wall list):
 | `centred` | gap on the line (dead ahead) | clear (trivial by design) |
 | `gap` | gap ~2 m off the line | blocked → detour |
 | `slalom` | two staggered gaps (low then high) | blocked → S-detour |
-| `micro_mouse_easy` | 4×4 micro-mouse maze (Robot Escape Room easy) | blocked → maze route |
-| `micro_mouse_hard` | 8×8 micro-mouse maze (Robot Escape Room hard) | blocked → maze route |
+| `micro_mouse_easy` | 4×4 micro-mouse maze (Nav2 Planner Battle easy) | blocked → maze route |
+| `micro_mouse_hard` | 8×8 micro-mouse maze (Nav2 Planner Battle hard) | blocked → maze route |
 
 ## Run (real ROS host)
 

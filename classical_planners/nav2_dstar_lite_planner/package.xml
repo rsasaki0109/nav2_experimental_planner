@@ -9,7 +9,7 @@
     (NavFn, Smac, Theta*) that replan from scratch; this adds the incremental
     family: D* Lite caches g/rhs values from the goal-rooted search and repairs
     only the vertices whose costs change between cycles. Part of
-    RobotEscapeRoom: planners not in upstream Nav2.
+    Nav2PlannerBattle: planners not in upstream Nav2.
   </description>
 
   <maintainer email="rsasaki0109@gmail.com">Ryohei Sasaki</maintainer>

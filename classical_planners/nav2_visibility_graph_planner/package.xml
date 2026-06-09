@@ -8,7 +8,7 @@
     about obstacle geometry rather than grid cells: graph vertices are obstacle
     convex corners (plus start and goal), edges connect mutually visible vertices,
     and an A* search returns a piecewise-straight corner-hugging route. Upstream
-    Nav2 has no visibility-graph planner. Part of RobotEscapeRoom:
+    Nav2 has no visibility-graph planner. Part of Nav2PlannerBattle:
     planners not in upstream Nav2.
   </description>
 

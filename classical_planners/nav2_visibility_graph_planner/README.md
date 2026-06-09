@@ -6,7 +6,7 @@
 
 Nav2 公式のグリッド planner（NavFn / Smac / Theta\*）や本リポジトリのサンプリング planner と違い、visibility graph は**連続空間で障害物の幾何**を扱う。障害物を避ける最短経路が曲がれる場所は**障害物の凸コーナーだけ**なので、グラフの頂点をそれらのコーナー（＋ start / goal）、辺を「互いに見える頂点対」とし、最短路探索（A\*）で**直線をつないだコーナー沿いの経路**を得る。本実装ではコーナーを costmap グリッドから抽出（障害物の凸コーナーに接する free セル）し、可視性は line-of-sight 判定なので、幾何 visibility graph のグリッド近似となる。
 
-Nav2 公式に visibility-graph planner は無い（`RobotEscapeRoom` = Nav2 に無い planner 群の一部）。他の classical 兄弟: サンプリング [nav2_rrt_planner](../nav2_rrt_planner/README.md)・[nav2_prm_planner](../nav2_prm_planner/README.md)、インクリメンタル [nav2_dstar_lite_planner](../nav2_dstar_lite_planner/README.md)、グリッド高速化 [nav2_jps_planner](../nav2_jps_planner/README.md)、any-angle [nav2_lazy_theta_star_planner](../nav2_lazy_theta_star_planner/README.md)、anytime [nav2_ara_star_planner](../nav2_ara_star_planner/README.md)。
+Nav2 公式に visibility-graph planner は無い（`Nav2PlannerBattle` = Nav2 に無い planner 群の一部）。他の classical 兄弟: サンプリング [nav2_rrt_planner](../nav2_rrt_planner/README.md)・[nav2_prm_planner](../nav2_prm_planner/README.md)、インクリメンタル [nav2_dstar_lite_planner](../nav2_dstar_lite_planner/README.md)、グリッド高速化 [nav2_jps_planner](../nav2_jps_planner/README.md)、any-angle [nav2_lazy_theta_star_planner](../nav2_lazy_theta_star_planner/README.md)、anytime [nav2_ara_star_planner](../nav2_ara_star_planner/README.md)。
 
 ## アルゴリズム
 

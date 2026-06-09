@@ -4,7 +4,7 @@
   <name>nav2_diffusion_training</name>
   <version>0.11.0</version>
   <description>
-    Dataset and training tools for RobotEscapeRoom. Kept separate from the
+    Dataset and training tools for Nav2PlannerBattle. Kept separate from the
     runtime packages so heavy Python dependencies stay out of the robot
     (docs/architecture.md section 12.2). See docs/training.md.
   </description>

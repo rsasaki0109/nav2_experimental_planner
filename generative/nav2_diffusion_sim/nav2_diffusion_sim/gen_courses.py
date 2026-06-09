@@ -1,4 +1,4 @@
-# Copyright 2026 RobotEscapeRoom contributors
+# Copyright 2026 Nav2PlannerBattle contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -34,7 +34,7 @@ The courses mirror the off-line ``planner_benchmark`` obstacle scenarios
 (centred gap / off-centre gap / slalom) and the browser-battle **micro-mouse**
 mazes (easy / hard — same wall layout as
 ``nav2_planner_benchmarks/micro_mouse_maze.hpp``) so the closed-loop stack can be
-measured on the same shapes the proposal-stage benchmark and Robot Escape Room use.
+measured on the same shapes the proposal-stage benchmark and Nav2 Planner Battle use.
 """
 
 import math
@@ -131,7 +131,7 @@ COURSE_SPECS = {
     'micro_mouse_easy': {
         'description': (
             'Micro-mouse easy: 4×4 grid (1.5 m cells), SW start, centre goal — '
-            'matches Robot Escape Room micro mouse easy / battle_trace.'),
+            'matches Nav2 Planner Battle micro mouse easy / battle_trace.'),
         'extent': (0.0, 6.0, 0.0, 6.0),
         'start': (0.75, 0.75, _yaw_toward(0.75, 0.75, 2.25, 2.25)),
         'goals': [('centre', 2.25, 2.25, 0.0, 240.0)],
@@ -141,7 +141,7 @@ COURSE_SPECS = {
     'micro_mouse_hard': {
         'description': (
             'Micro-mouse hard: 8×8 grid (0.75 m cells), SW start, centre goal — '
-            'matches Robot Escape Room micro mouse hard / battle_trace.'),
+            'matches Nav2 Planner Battle micro mouse hard / battle_trace.'),
         'extent': (0.0, 6.0, 0.0, 6.0),
         # Battle trace uses (0.5, 0.5) for a point robot; nudge inward for TB3 footprint.
         'start': (0.425, 0.425, _yaw_toward(0.425, 0.425, 3.375, 3.375)),

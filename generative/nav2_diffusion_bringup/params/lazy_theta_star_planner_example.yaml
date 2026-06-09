@@ -1,7 +1,7 @@
 # Example Nav2 planner_server configuration using the LazyThetaStarPlanner, an
 # any-angle global planner. Upstream Nav2 ships eager Theta* in
 # nav2_theta_star_planner; this is the lazy variant (defers line-of-sight checks)
-# from RobotEscapeRoom. Drop-in replacement for the GridBased global
+# from Nav2PlannerBattle. Drop-in replacement for the GridBased global
 # planner plugin. See nav2_lazy_theta_star_planner/README.md.
 #
 # Lazy Theta* lets a node's parent be any earlier node it has line of sight to,

@@ -4,7 +4,7 @@
 
 **Status: 実装あり（ビルド & lint 通過 / pluginlib 登録・closed-loop 統合テスト済み）。classical（非AI）planner。**
 
-Nav2 公式の global planner（NavFn / Smac / Theta\*）は**毎サイクル一から再計画する one-shot 探索**で、**インクリメンタル planner が存在しない**。本パッケージはその空白を埋める classical な **D\* Lite**（Koenig & Likhachev, 2002）を nav2_core プラグインとして提供する（`RobotEscapeRoom` = Nav2 に無い planner 群の一部）。サンプリング系の兄弟に [nav2_rrt_planner](../nav2_rrt_planner/README.md)（RRT\* / RRT-Connect）、[nav2_prm_planner](../nav2_prm_planner/README.md)（PRM）がある。
+Nav2 公式の global planner（NavFn / Smac / Theta\*）は**毎サイクル一から再計画する one-shot 探索**で、**インクリメンタル planner が存在しない**。本パッケージはその空白を埋める classical な **D\* Lite**（Koenig & Likhachev, 2002）を nav2_core プラグインとして提供する（`Nav2PlannerBattle` = Nav2 に無い planner 群の一部）。サンプリング系の兄弟に [nav2_rrt_planner](../nav2_rrt_planner/README.md)（RRT\* / RRT-Connect）、[nav2_prm_planner](../nav2_prm_planner/README.md)（PRM）がある。
 
 ## アルゴリズム
 

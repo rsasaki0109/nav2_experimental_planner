@@ -4,7 +4,7 @@
   <name>nav2_diffusion_bringup</name>
   <version>0.11.0</version>
   <description>
-    Example Nav2 launch files and parameters for RobotEscapeRoom,
+    Example Nav2 launch files and parameters for Nav2PlannerBattle,
     including a headless loopback closed-loop demo driven by the
     DiffusionController. See docs/getting_started and docs/simulation.md.
   </description>

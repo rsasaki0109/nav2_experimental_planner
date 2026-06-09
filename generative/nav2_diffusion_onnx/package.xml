@@ -4,7 +4,7 @@
   <name>nav2_diffusion_onnx</name>
   <version>0.11.0</version>
   <description>
-    Optional ONNX Runtime inference backend for RobotEscapeRoom: an
+    Optional ONNX Runtime inference backend for Nav2PlannerBattle: an
     OnnxTrajectoryModel implementing nav2_diffusion_core::TrajectoryModel
     (docs/architecture.md sections 5.2/7.2). Requires onnxruntime to be findable
     by CMake (onnxruntime_vendor, a system install, or CMAKE_PREFIX_PATH); it is

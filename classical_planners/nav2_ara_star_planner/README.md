@@ -6,7 +6,7 @@
 
 ARA\*（Likhachev, Gordon and Thrun, 2003）は **inflation factor ε を下げながら重み付き A\* を反復**する anytime planner。最初の探索（大きい ε）は安価で、**最適の ε 倍以内**を保証する解を素早く返す。以降は ε を下げ、前回の探索結果（OPEN と INCONS リスト）を**再利用**して解を改善し、suboptimality bound を 1（最適）へ締めていく。よって時間予算が限られても**まず妥当な解を返し、予算が許す限り改善**する。
 
-Nav2 公式には **anytime / bounded-suboptimal な planner が存在しない**ため、この *capability* 自体が空白（`RobotEscapeRoom` = Nav2 に無い planner 群の一部）。他の classical 兄弟: サンプリング系 [nav2_rrt_planner](../nav2_rrt_planner/README.md)・[nav2_prm_planner](../nav2_prm_planner/README.md)、インクリメンタル [nav2_dstar_lite_planner](../nav2_dstar_lite_planner/README.md)、グリッド高速化 [nav2_jps_planner](../nav2_jps_planner/README.md)、any-angle [nav2_lazy_theta_star_planner](../nav2_lazy_theta_star_planner/README.md)。
+Nav2 公式には **anytime / bounded-suboptimal な planner が存在しない**ため、この *capability* 自体が空白（`Nav2PlannerBattle` = Nav2 に無い planner 群の一部）。他の classical 兄弟: サンプリング系 [nav2_rrt_planner](../nav2_rrt_planner/README.md)・[nav2_prm_planner](../nav2_prm_planner/README.md)、インクリメンタル [nav2_dstar_lite_planner](../nav2_dstar_lite_planner/README.md)、グリッド高速化 [nav2_jps_planner](../nav2_jps_planner/README.md)、any-angle [nav2_lazy_theta_star_planner](../nav2_lazy_theta_star_planner/README.md)。
 
 ## アルゴリズム
 

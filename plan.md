@@ -1,4 +1,4 @@
-# RobotEscapeRoom — 開発計画 (PLAN)
+# Nav2PlannerBattle — 開発計画 (PLAN)
 
 > 本ドキュメントは「いま何ができていて、次に何を、どの順で、何を満たせば完了とするか」を
 > 一枚に束ねた **生きた計画書**。バージョン軸の高レベル計画は
@@ -8,7 +8,7 @@
 > [CHANGELOG.md](CHANGELOG.md) を正本とする。本書はそれらを横断して
 > **現在地 → 次の一手** の流れで読めるようにしたもの。
 >
-> 最終更新: 2026-06-09（リポジトリ名 RobotEscapeRoom へリブランド）
+> 最終更新: 2026-06-09（Gazebo mission harness 強化 · Nav2PlannerBattle 名で維持）
 
 ---
 
@@ -18,7 +18,7 @@
 - **第 4 章**: 純生成で越えられていない天井と、それに対する設計判断。
 - **第 5 章**: 次フェーズの実行計画（GPU / シム / 実データ / 実機のどれか 1 つで着手できる段）。
 - **第 6 章**: v1.0 / v2.0 への長期ロードマップ。
-- **第 7 章**: Robot Escape Room（ブラウザゲーム）の発展計画 — リブランドで前面に出た新しい軸。
+- **第 7 章**: Nav2 Planner Battle（ブラウザゲーム）の発展計画 — リブランドで前面に出た新しい軸。
 - **第 8〜9 章**: スコープ外と着手チェックリスト。
 
 ---
@@ -27,17 +27,18 @@
 
 ### 1.1 アイデンティティ
 
-**RobotEscapeRoom** は Nav2 を置き換えるプロジェクトではない。Nav2 の既存アーキテクチャ
+**Nav2PlannerBattle** は Nav2 を置き換えるプロジェクトではない。Nav2 の既存アーキテクチャ
 （Behavior Tree / Lifecycle Node / Planner & Controller プラグイン / Costmap / Collision
 Monitor）を最大限活かし、その上に **生成型ナビゲーションモデルを安全に接続する OSS 基盤**である。
 
 合言葉は **「Learned models propose. Classical safety disposes. Nav2 executes.」**
 （学習モデルが提案し、古典的な安全層が棄却し、Nav2 が実行する）。
 
-リブランド（2026-06-09、旧 Nav2PlannerBattle）により、リポジトリ名は **RobotEscapeRoom** に統一。
-迷路・障害物コースから「脱出」するロボットを、本物の Nav2 プラグインのトレースで競わせる
-**Robot Escape Room**（`tools/robot_escape_room`）が前面の体験軸。比較の正本は引き続き
-docs/\*\_comparison.md と `battle_trace` の実 C++ ベンチ。
+リブランド（2026-06-08）により、リポジトリ名は **Nav2PlannerBattle** に統一。
+これは単なる改名ではなく、本リポジトリのもう一つの軸 ——
+**「Nav2 公式に無い planner / controller を実装し、同一シナリオで戦わせて比較する」**
+—— を前面に出すもの。比較は表（docs/\*\_comparison.md）だけでなく、本物のプラグインを
+そのままブラウザで競わせる [Nav2 Planner Battle](tools/nav2_planner_battle) ゲームにも結実している。
 
 ### 1.2 二つのモードと安全層
 
@@ -58,7 +59,7 @@ v0.x の間に footprint だけでなく**車両動力学（曲率）**にも di
 - **DAgger 閉ループ学習基盤**（`dagger.py`）と **rosbag/sim ingestion**（`rosbag_io.py` / `dataset.py`）。
 - **model_zoo**（manifest + model card + 再現可能な `export.py`、`.onnx` は gitignore・sha256 が正本）。
 - **横断比較ベンチ**（`nav2_planner_benchmarks` / `nav2_diffusion_benchmarks`）と自動生成 leaderboard。
-- **Robot Escape Room**（`tools/robot_escape_room`）+ トレース出力器 `battle_trace`。
+- **Nav2 Planner Battle**（`tools/nav2_planner_battle`）+ トレース出力器 `battle_trace`。
 - 可搬可視化（MCAP + Foxglove/Lichtblick、Gazebo コース GIF）。
 
 ---
@@ -104,7 +105,7 @@ v0.x の間に footprint だけでなく**車両動力学（曲率）**にも di
 **Ackermann 3/8**（near-straight な clear / centred gap / double gate のみ。曲率検証が
 narrow/off-centre/far/side/slalom を正しく棄却 —— 1.5 m 旋回円を越える横移動が必要なため）。
 
-### 2.3 Robot Escape Room（ブラウザゲーム）（Unreleased）
+### 2.3 Nav2 Planner Battle（ブラウザゲーム）（Unreleased）
 
 本物のプラグインのトレースを `battle_trace`（`controller_benchmark` / `planner_benchmark` を厳密にミラー）で
 JSON 出力し、自己完結 HTML/canvas で再生。**Mode A · Race**（local controller が共有アリーナを競走、
@@ -234,7 +235,7 @@ edge-GPU での実時間性を確定。
 
 ---
 
-## 7. Robot Escape Room（ゲーム）発展計画
+## 7. Nav2 Planner Battle（ゲーム）発展計画
 
 リブランドで前面に出た軸。現状（§2.3）から先の候補（優先度順、いずれも任意）:
 

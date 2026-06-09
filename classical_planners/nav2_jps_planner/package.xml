@@ -8,7 +8,7 @@
     (nav2_core::GlobalPlanner). JPS is an optimal speed-up of 8-connected grid A*
     on uniform-cost grids that jumps over symmetric path segments and expands far
     fewer nodes. Upstream Nav2's grid planners (NavFn, Smac) do not include JPS.
-    Part of RobotEscapeRoom: planners not in upstream Nav2.
+    Part of Nav2PlannerBattle: planners not in upstream Nav2.
   </description>
 
   <maintainer email="rsasaki0109@gmail.com">Ryohei Sasaki</maintainer>

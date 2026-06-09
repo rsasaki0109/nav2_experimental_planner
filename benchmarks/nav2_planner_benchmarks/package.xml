@@ -5,7 +5,7 @@
   <version>0.11.0</version>
   <description>
     Offline comparison of the nav2_core::GlobalPlanner plugins in
-    RobotEscapeRoom (RRT*, RRT-Connect, PRM, D* Lite, JPS, Lazy Theta*,
+    Nav2PlannerBattle (RRT*, RRT-Connect, PRM, D* Lite, JPS, Lazy Theta*,
     ARA*, visibility graph, plus the generative Mode B diffusion planner) on shared
     scenarios against a live Costmap2DROS, writing a Markdown leaderboard
     (docs/planner_comparison.md).

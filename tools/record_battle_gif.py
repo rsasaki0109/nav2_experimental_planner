@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2026 RobotEscapeRoom contributors
+# Copyright 2026 Nav2PlannerBattle contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-Record README battle GIFs from the real browser Robot Escape Room UI.
+Record README battle GIFs from the real browser Nav2 Planner Battle UI.
 
 Every fighter (all controllers / planners in the scenario) moves on the arena
 canvas with coloured trails, heading arrows, LIVE HUD, collisions and goal flags.
@@ -41,7 +41,7 @@ from PIL import Image
 from playwright.sync_api import sync_playwright
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-BATTLE = os.path.join(HERE, 'robot_escape_room')
+BATTLE = os.path.join(HERE, 'nav2_planner_battle')
 DOCS = os.path.join(HERE, '..', 'docs')
 
 _JOBS = [

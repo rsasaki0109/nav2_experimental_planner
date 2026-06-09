@@ -6,7 +6,7 @@
 
 Theta\*（Nash et al.）はノードの親を「視線（line-of-sight）が通る任意の先行ノード」にできるため、経路が 8 グリッド方向に縛られず**障害物の角でだけ曲がり、それ以外は直進する any-angle 経路**を生む。**Lazy Theta\***（Nash, Koenig and Tovey, 2010）はその LOS 判定を**遅延**する変種で、後続ノードが祖父ノードから見えると楽観的に仮定し、ノード展開時にだけ検証・修復する。これにより LOS 判定回数が「エッジ毎」から「展開ノード毎」へ激減する。
 
-Nav2 公式は **eager な Theta\*** を `nav2_theta_star_planner` で提供するが、本 **lazy 変種**は別アルゴリズムで未収録（`RobotEscapeRoom` = Nav2 に無い planner 群の一部）。サンプリング系に [nav2_rrt_planner](../nav2_rrt_planner/README.md)（RRT\* / RRT-Connect）・[nav2_prm_planner](../nav2_prm_planner/README.md)（PRM）、インクリメンタル系に [nav2_dstar_lite_planner](../nav2_dstar_lite_planner/README.md)（D\* Lite）、グリッド高速化に [nav2_jps_planner](../nav2_jps_planner/README.md)（JPS）。
+Nav2 公式は **eager な Theta\*** を `nav2_theta_star_planner` で提供するが、本 **lazy 変種**は別アルゴリズムで未収録（`Nav2PlannerBattle` = Nav2 に無い planner 群の一部）。サンプリング系に [nav2_rrt_planner](../nav2_rrt_planner/README.md)（RRT\* / RRT-Connect）・[nav2_prm_planner](../nav2_prm_planner/README.md)（PRM）、インクリメンタル系に [nav2_dstar_lite_planner](../nav2_dstar_lite_planner/README.md)（D\* Lite）、グリッド高速化に [nav2_jps_planner](../nav2_jps_planner/README.md)（JPS）。
 
 ## アルゴリズム
 

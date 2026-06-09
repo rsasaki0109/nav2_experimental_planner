@@ -4,7 +4,7 @@
 set -eo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT="$ROOT/tools/robot_escape_room"
+OUT="$ROOT/tools/nav2_planner_battle"
 MODE=""
 LABEL=""
 ONNX=""
@@ -14,7 +14,7 @@ FULL=0
 
 usage() {
   cat <<'EOF'
-Battle your ONNX model against the default Robot Escape Room roster.
+Battle your ONNX model against the default Nav2 Planner Battle roster.
 
 Usage:
   tools/battle_custom_model.sh --mode A|B --label NAME --onnx PATH [options]
@@ -106,4 +106,4 @@ else
     "$OUT/battle_data.json" "$TMP" "$OUT/battle_data.json"
 fi
 
-echo "open tools/robot_escape_room/index.html and pick a scenario to watch \"$LABEL\" fight." >&2
+echo "open tools/nav2_planner_battle/index.html and pick a scenario to watch \"$LABEL\" fight." >&2

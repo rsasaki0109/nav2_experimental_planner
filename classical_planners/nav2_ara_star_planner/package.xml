@@ -9,7 +9,7 @@
     inflation factor, reusing search effort to return a bounded-suboptimal path
     quickly and improve it toward optimal within a per-plan expansion budget.
     Upstream Nav2 has no anytime / bounded-suboptimal planner. Part of
-    RobotEscapeRoom: planners not in upstream Nav2.
+    Nav2PlannerBattle: planners not in upstream Nav2.
   </description>
 
   <maintainer email="rsasaki0109@gmail.com">Ryohei Sasaki</maintainer>

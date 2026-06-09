@@ -9,7 +9,7 @@
     planners (NavFn, Smac, Theta*); this adds a classical sampling-based roadmap
     planner that samples collision-free milestones, connects nearby ones into a
     graph, and runs a shortest-path search over it. Part of
-    RobotEscapeRoom: planners not in upstream Nav2.
+    Nav2PlannerBattle: planners not in upstream Nav2.
   </description>
 
   <maintainer email="rsasaki0109@gmail.com">Ryohei Sasaki</maintainer>

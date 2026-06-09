@@ -9,7 +9,7 @@
     controller: it builds a polar histogram of obstacles around the robot and
     steers toward the free angular sector best aligned with the goal. Upstream
     Nav2 has no VFH controller (it ships DWB, MPPI, Regulated Pure Pursuit). Part
-    of RobotEscapeRoom: planners not in upstream Nav2.
+    of Nav2PlannerBattle: planners not in upstream Nav2.
   </description>
 
   <maintainer email="rsasaki0109@gmail.com">Ryohei Sasaki</maintainer>

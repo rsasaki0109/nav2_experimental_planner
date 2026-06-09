@@ -4,7 +4,7 @@
 
 **Status: 実装あり（ビルド & lint 通過 / pluginlib 登録・closed-loop 統合テスト済み）。classical（非AI）planner。**
 
-JPS（Harabor & Grastien, 2011）は均一コストグリッド上の 8 連結 A\* を**最適性を保ったまま高速化**する手法。グリッド経路の対称性を利用し、A\* が 1 セルずつ展開する直線/斜めのセル列を**ジャンプで飛ばし**、ターニングポイントと forced neighbor（強制隣接）だけを open list に積む。展開ノード数が大幅に減り、A\* と同じ最適経路を返す。Nav2 公式のグリッド planner（NavFn / Smac）に JPS は含まれない（`RobotEscapeRoom` = Nav2 に無い planner 群の一部）。サンプリング系の兄弟に [nav2_rrt_planner](../nav2_rrt_planner/README.md)（RRT\* / RRT-Connect）・[nav2_prm_planner](../nav2_prm_planner/README.md)（PRM）、インクリメンタル系に [nav2_dstar_lite_planner](../nav2_dstar_lite_planner/README.md)（D\* Lite）。
+JPS（Harabor & Grastien, 2011）は均一コストグリッド上の 8 連結 A\* を**最適性を保ったまま高速化**する手法。グリッド経路の対称性を利用し、A\* が 1 セルずつ展開する直線/斜めのセル列を**ジャンプで飛ばし**、ターニングポイントと forced neighbor（強制隣接）だけを open list に積む。展開ノード数が大幅に減り、A\* と同じ最適経路を返す。Nav2 公式のグリッド planner（NavFn / Smac）に JPS は含まれない（`Nav2PlannerBattle` = Nav2 に無い planner 群の一部）。サンプリング系の兄弟に [nav2_rrt_planner](../nav2_rrt_planner/README.md)（RRT\* / RRT-Connect）・[nav2_prm_planner](../nav2_prm_planner/README.md)（PRM）、インクリメンタル系に [nav2_dstar_lite_planner](../nav2_dstar_lite_planner/README.md)（D\* Lite）。
 
 ## アルゴリズム
 

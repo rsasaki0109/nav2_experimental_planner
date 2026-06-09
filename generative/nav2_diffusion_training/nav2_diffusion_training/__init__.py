@@ -1,4 +1,4 @@
-# Copyright 2026 RobotEscapeRoom contributors
+# Copyright 2026 Nav2PlannerBattle contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Training dataset tools for RobotEscapeRoom."""
+"""Training dataset tools for Nav2PlannerBattle."""
 
 from nav2_diffusion_training.dataset import (
     build_samples,

@@ -9,7 +9,7 @@
     nav2_theta_star_planner; this adds the lazy variant (Nash, Koenig and Tovey,
     2010) that defers line-of-sight checks to about one per expanded node,
     producing any-angle paths that are not confined to the 8 grid directions.
-    Part of RobotEscapeRoom: planners not in upstream Nav2.
+    Part of Nav2PlannerBattle: planners not in upstream Nav2.
   </description>
 
   <maintainer email="rsasaki0109@gmail.com">Ryohei Sasaki</maintainer>

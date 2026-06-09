@@ -6,7 +6,7 @@
 
 ND navigation（Minguez & Montano, 2004）は、ロボット周囲の障害物の**近さ（nearness）をセクタごと**に評価し、ロボットが通れる**navigable な領域（gap）**を抽出して目標方向に近い gap を選び、さらに **safety deflection**（近い障害物のある側から離れる偏向）を加えて操舵する反応的回避法。安全偏向により**回廊の中央寄せ**や**狭所のすり抜け**が自然に出るのが、ヒストグラム valley コストで選ぶ VFH+ との明確な違い。
 
-本実装は簡易版 ND（セクタごとの最近傍距離 + 領域/gap 選択 + 対称な safety deflection）。VFH+ とは別系統の反応パラダイムで、Nav2 公式にはどちらも無い（`RobotEscapeRoom` = Nav2 に無い planner 群の一部）。
+本実装は簡易版 ND（セクタごとの最近傍距離 + 領域/gap 選択 + 対称な safety deflection）。VFH+ とは別系統の反応パラダイムで、Nav2 公式にはどちらも無い（`Nav2PlannerBattle` = Nav2 に無い planner 群の一部）。
 
 ## アルゴリズム
 

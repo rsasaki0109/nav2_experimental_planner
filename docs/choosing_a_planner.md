@@ -1,6 +1,6 @@
 # どの planner / controller を使うか（選択ガイド）
 
-`RobotEscapeRoom` は Nav2 公式に無い planner / controller を多数収録している。本ガイドはその中から**状況に応じてどれを選ぶか**の道標。実測の比較は [planner_comparison.md](planner_comparison.md)（classical GlobalPlanner 8 種 + 生成型 Mode B を同一土俵で比較）と [controller_comparison.md](controller_comparison.md)（reactive Controller 2 種）を参照。
+`Nav2PlannerBattle` は Nav2 公式に無い planner / controller を多数収録している。本ガイドはその中から**状況に応じてどれを選ぶか**の道標。実測の比較は [planner_comparison.md](planner_comparison.md)（classical GlobalPlanner 8 種 + 生成型 Mode B を同一土俵で比較）と [controller_comparison.md](controller_comparison.md)（reactive Controller 2 種）を参照。
 
 > 大前提: これらは**実験的**実装で安全認証品ではない（[safety.md](safety.md)）。標準的な静的グリッド経路計画で十分なら、まず Nav2 公式の **NavFn / Smac**（global）や **MPPI / Regulated Pure Pursuit**（local）を使うこと。本リポジトリは、それらが**カバーしないパラダイム**が必要なときの選択肢を足すもの。
 

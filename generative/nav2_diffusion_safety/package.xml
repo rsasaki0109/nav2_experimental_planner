@@ -4,7 +4,7 @@
   <name>nav2_diffusion_safety</name>
   <version>0.11.0</version>
   <description>
-    Deterministic, GPU-independent safety layer for RobotEscapeRoom.
+    Deterministic, GPU-independent safety layer for Nav2PlannerBattle.
     Validates generative trajectory candidates (kinematic limits, collision,
     stale data) before execution. See docs/safety.md.
   </description>

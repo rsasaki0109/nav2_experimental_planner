@@ -14,7 +14,7 @@ setup(
     zip_safe=True,
     maintainer='Ryohei Sasaki',
     maintainer_email='rsasaki0109@gmail.com',
-    description='Dataset and training tools for RobotEscapeRoom.',
+    description='Dataset and training tools for Nav2PlannerBattle.',
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={

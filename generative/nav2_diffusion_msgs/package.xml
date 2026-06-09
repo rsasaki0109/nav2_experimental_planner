@@ -4,7 +4,7 @@
   <name>nav2_diffusion_msgs</name>
   <version>0.11.0</version>
   <description>
-    Message and service definitions for RobotEscapeRoom: future trajectory
+    Message and service definitions for Nav2PlannerBattle: future trajectory
     candidates, best trajectory, safety state, and diagnostics. See
     docs/architecture.md sections 4.3 (Output Contract) and 4.4 (Trajectory
     Representation), and docs/safety.md section 8.3 (Safety State Machine).

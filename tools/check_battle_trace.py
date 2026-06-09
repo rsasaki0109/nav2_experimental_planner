@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2026 RobotEscapeRoom contributors
+# Copyright 2026 Nav2PlannerBattle contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ Usage::
 
     ros2 run nav2_planner_benchmarks battle_trace > /tmp/fresh.json
     python3 tools/check_battle_trace.py \\
-        tools/robot_escape_room/battle_data.json /tmp/fresh.json
+        tools/nav2_planner_battle/battle_data.json /tmp/fresh.json
 """
 
 from __future__ import annotations

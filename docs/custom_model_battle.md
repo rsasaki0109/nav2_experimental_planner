@@ -1,7 +1,7 @@
 # Battle your ONNX model
 
 Run your trained Nav2 generative model through the **same** `battle_trace` harness as the
-default roster, then replay it in the browser Robot Escape Room UI — no scripted winners.
+default roster, then replay it in the browser Nav2 Planner Battle UI — no scripted winners.
 
 ## Quick start
 
@@ -17,7 +17,7 @@ tools/battle_custom_model.sh \
   --mode B --label my-planner --onnx /path/to/global.onnx --min-turn-radius 0
 ```
 
-Open `tools/robot_escape_room/index.html` (or serve the folder locally) and play any
+Open `tools/nav2_planner_battle/index.html` (or serve the folder locally) and play any
 scenario. Your fighter appears alongside VFH+, RRT*, Diffusion, etc.
 
 The default script path is **fast**: it runs only your model (`--custom-only`), then merges
@@ -62,8 +62,8 @@ ros2 run nav2_planner_benchmarks battle_trace \
 
 # 2) Merge into the golden battle file + regenerate battle_data.js
 python3 tools/merge_battle_fighter.py \
-  tools/robot_escape_room/battle_data.json /tmp/custom.json \
-  tools/robot_escape_room/battle_data.json
+  tools/nav2_planner_battle/battle_data.json /tmp/custom.json \
+  tools/nav2_planner_battle/battle_data.json
 ```
 
 `battle_trace` flags:
@@ -83,6 +83,6 @@ python3 tools/merge_battle_fighter.py \
 
 ## Related
 
-- [Robot Escape Room README](../tools/robot_escape_room/README.md)
+- [Nav2 Planner Battle README](../tools/nav2_planner_battle/README.md)
 - [Controller comparison](controller_comparison.md) · [Planner comparison](planner_comparison.md)
 - [Training](training.md) · [Model zoo](model_zoo.md)

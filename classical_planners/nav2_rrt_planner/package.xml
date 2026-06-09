@@ -8,7 +8,7 @@
     Upstream Nav2 ships only search-based global planners (NavFn, Smac, Theta*);
     this adds a classical asymptotically-optimal sampling planner that can route
     through gaps the grid planners' neighbourhoods miss. Part of
-    RobotEscapeRoom: planners not in upstream Nav2.
+    Nav2PlannerBattle: planners not in upstream Nav2.
   </description>
 
   <maintainer email="rsasaki0109@gmail.com">Ryohei Sasaki</maintainer>

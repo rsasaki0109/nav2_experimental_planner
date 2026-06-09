@@ -1,4 +1,4 @@
-# Robot Escape Room ⚔️
+# Nav2 Planner Battle ⚔️
 
 A browser battle game that replays the repo's **real** Nav2 planners and controllers
 head-to-head. No scripted winners — every fighter is the actual plugin, replayed from
@@ -22,16 +22,16 @@ Two modes:
 
 ## Play
 
-**Online (GitHub Pages):** [https://rsasaki0109.github.io/RobotEscapeRoom/](https://rsasaki0109.github.io/RobotEscapeRoom/)
+**Online (GitHub Pages):** [https://rsasaki0109.github.io/Nav2PlannerBattle/](https://rsasaki0109.github.io/Nav2PlannerBattle/)
 
 Or open `index.html` locally (no server needed — the data is loaded from `battle_data.js`):
 
 ```bash
-xdg-open tools/robot_escape_room/index.html      # Linux
+xdg-open tools/nav2_planner_battle/index.html      # Linux
 ```
 
 > **Pages setup (maintainers):** enable **Settings → Pages → Build and deployment →
-> Source: GitHub Actions**. Pushes to `main` that touch `tools/robot_escape_room/`
+> Source: GitHub Actions**. Pushes to `main` that touch `tools/nav2_planner_battle/`
 > run [`.github/workflows/pages.yml`](../../.github/workflows/pages.yml) automatically.
 
 Controls: pick a **scenario**, **▶ Play**, scrub **speed**, **⟲ Restart**, and toggle
@@ -48,10 +48,10 @@ goal, inspired by All Japan MicroMouse.
 controllers) or **Duel** (Mode B planners). Scoring: 1st=3, 2nd=2, 3rd=1 per scenario plus
 a success bonus (+1 for goal reached / valid path).
 Deep links freeze a frame for sharing, e.g.
-[frontal block](https://rsasaki0109.github.io/RobotEscapeRoom/?m=A&s=1&t=120),
-[micro mouse easy](https://rsasaki0109.github.io/RobotEscapeRoom/?m=A&s=4),
-[Championship · Race](https://rsasaki0109.github.io/RobotEscapeRoom/?m=C),
-[Championship · Duel](https://rsasaki0109.github.io/RobotEscapeRoom/?m=C&sub=B).
+[frontal block](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=A&s=1&t=120),
+[micro mouse easy](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=A&s=4),
+[Championship · Race](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=C),
+[Championship · Duel](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=C&sub=B).
 
 ## Regenerate the data
 
@@ -61,7 +61,7 @@ The traces come from a small ROS 2 exporter that runs the real plugins:
 # (build the workspace first; needs the onnxruntime prefix for the generative models)
 tools/sync_battle_data.sh
 # CI regression gate (fresh export must match committed battle_data.json):
-python3 tools/check_battle_trace.py tools/robot_escape_room/battle_data.json /tmp/fresh.json
+python3 tools/check_battle_trace.py tools/nav2_planner_battle/battle_data.json /tmp/fresh.json
 # On failure prints a category summary (outcome / clearance / reach / metrics) before the full diff list.
 ```
 

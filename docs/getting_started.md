@@ -2,7 +2,7 @@
 
 > 対象: 既存の Nav2 ユーザー。関連: [architecture.md](architecture.md) §3.2 Mode A、[simulation.md](simulation.md)、[../nav2_diffusion_bringup/README.md](../generative/nav2_diffusion_bringup/README.md)
 
-`RobotEscapeRoom` は、Nav2 の plugin を差し替えるだけで、**Nav2 公式に無い planner / controller** を試せます。生成型ローカルプランナ（「Learned models propose. Classical safety disposes. Nav2 executes.」）に加え、**classical な GlobalPlanner 8 種**（RRT\* / RRT-Connect / PRM / D\* Lite / JPS / Lazy Theta\* / ARA\* / visibility graph）と **reactive Controller 2 種**（VFH+ / ND）を収録しています。
+`Nav2PlannerBattle` は、Nav2 の plugin を差し替えるだけで、**Nav2 公式に無い planner / controller** を試せます。生成型ローカルプランナ（「Learned models propose. Classical safety disposes. Nav2 executes.」）に加え、**classical な GlobalPlanner 8 種**（RRT\* / RRT-Connect / PRM / D\* Lite / JPS / Lazy Theta\* / ARA\* / visibility graph）と **reactive Controller 2 種**（VFH+ / ND）を収録しています。
 
 どれを選ぶかは [choosing_a_planner.md](choosing_a_planner.md)（状況別の推奨・決定フロー）、実測比較は [planner_comparison.md](planner_comparison.md) / [controller_comparison.md](controller_comparison.md) を参照。
 

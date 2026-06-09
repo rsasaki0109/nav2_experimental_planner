@@ -7,10 +7,10 @@ before 1.0.0 (see [docs/roadmap.md](docs/roadmap.md)).
 ## [Unreleased]
 
 ### Changed
-- **Repository rebrand: Nav2PlannerBattle → RobotEscapeRoom.** GitHub Pages URL, CI badges,
-  copyright headers, and the browser game path (`tools/robot_escape_room/`, formerly
-  `tools/nav2_planner_battle/`). ROS package names (`nav2_diffusion_*`, `nav2_planner_benchmarks`,
-  …) are unchanged — they remain Nav2 plugin identifiers.
+- **Gazebo mission harness:** fork `tb3_simulation_launch.py` so gz starts after xacro,
+  bridge/spawn/Nav2 follow gz; `sim_mission.py` coerces float params and waits for AMCL +
+  `bt_navigator` lifecycle active; mission node delayed 45s in `tb3_gazebo_mission.launch.py`.
+  See [docs/simulation.md](docs/simulation.md) §10.5.
 
 ### Added
 - **Mode A obstacle-threading: first learned controller here to thread ALL obstacle
@@ -751,7 +751,7 @@ that the measurement layer earns its place.
 ## [0.4.0] - 2026-06-04
 
 Theme: **classical planners Nav2 lacks.** The repo was renamed
-`nav2_diffusion_planner` -> `RobotEscapeRoom` to reflect a broader
+`nav2_diffusion_planner` -> `Nav2PlannerBattle` to reflect a broader
 charter: host experimental planners not in upstream Nav2, generative *and*
 classical. This release adds eight classical `nav2_core::GlobalPlanner` families
 spanning every major paradigm (sampling, incremental, grid-A* speed-up,
@@ -876,7 +876,7 @@ classical bench deep enough to be the disposer.
   the grid neighbourhoods miss. Closed-loop gtests vs a live `Costmap2DROS`
   (clear map, off-centre gap, solid wall, occupied goal, cancel) + a bringup
   planner_server example. First non-generative planner in the renamed
-  RobotEscapeRoom repo (planners not in upstream Nav2).
+  Nav2PlannerBattle repo (planners not in upstream Nav2).
 
 - **Generative GlobalPlanner (Nav2 Mode B)** — `nav2_diffusion_global_planner`,
   a `nav2_core::GlobalPlanner` plugin. A model proposes K candidate start→goal
@@ -1057,12 +1057,12 @@ deterministic safety layer and a benchmark suite. Matches the v0.1 theme
   simulated LiDAR; DDS discovery flakiness). The underlying logic is unit-tested.
 - This is not a safety-certified product; see [docs/safety.md](docs/safety.md).
 
-[0.9.0]: https://github.com/rsasaki0109/RobotEscapeRoom/releases/tag/v0.9.0
-[0.8.0]: https://github.com/rsasaki0109/RobotEscapeRoom/releases/tag/v0.8.0
-[0.7.0]: https://github.com/rsasaki0109/RobotEscapeRoom/releases/tag/v0.7.0
-[0.6.0]: https://github.com/rsasaki0109/RobotEscapeRoom/releases/tag/v0.6.0
-[0.5.0]: https://github.com/rsasaki0109/RobotEscapeRoom/releases/tag/v0.5.0
-[0.4.0]: https://github.com/rsasaki0109/RobotEscapeRoom/releases/tag/v0.4.0
-[0.3.0]: https://github.com/rsasaki0109/RobotEscapeRoom/releases/tag/v0.3.0
-[0.2.0]: https://github.com/rsasaki0109/RobotEscapeRoom/releases/tag/v0.2.0
-[0.1.0]: https://github.com/rsasaki0109/RobotEscapeRoom/releases/tag/v0.1.0
+[0.9.0]: https://github.com/rsasaki0109/Nav2PlannerBattle/releases/tag/v0.9.0
+[0.8.0]: https://github.com/rsasaki0109/Nav2PlannerBattle/releases/tag/v0.8.0
+[0.7.0]: https://github.com/rsasaki0109/Nav2PlannerBattle/releases/tag/v0.7.0
+[0.6.0]: https://github.com/rsasaki0109/Nav2PlannerBattle/releases/tag/v0.6.0
+[0.5.0]: https://github.com/rsasaki0109/Nav2PlannerBattle/releases/tag/v0.5.0
+[0.4.0]: https://github.com/rsasaki0109/Nav2PlannerBattle/releases/tag/v0.4.0
+[0.3.0]: https://github.com/rsasaki0109/Nav2PlannerBattle/releases/tag/v0.3.0
+[0.2.0]: https://github.com/rsasaki0109/Nav2PlannerBattle/releases/tag/v0.2.0
+[0.1.0]: https://github.com/rsasaki0109/Nav2PlannerBattle/releases/tag/v0.1.0

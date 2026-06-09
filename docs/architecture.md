@@ -1,6 +1,6 @@
 # Architecture
 
-`RobotEscapeRoom` のコアアーキテクチャ設計。安全 / 学習 / ベンチマーク / デプロイの詳細は専用ドキュメントに分割しています。
+`Nav2PlannerBattle` のコアアーキテクチャ設計。安全 / 学習 / ベンチマーク / デプロイの詳細は専用ドキュメントに分割しています。
 
 - 全体像と設計哲学: [../README.md](../README.md)
 - Safety Architecture: [safety.md](safety.md)
@@ -15,11 +15,11 @@
 
 ## 0. Executive Summary
 
-`RobotEscapeRoom` は、Nav2 を置き換えるプロジェクトではない。Nav2 の既存アーキテクチャ、Behavior Tree、Lifecycle Node、Planner / Controller Plugin、Costmap、安全機構を最大限活かし、その上に Diffusion / Flow Matching / Consistency / Transformer / World Model 系の生成型ナビゲーションモデルを安全に接続するための OSS 基盤として設計する。
+`Nav2PlannerBattle` は、Nav2 を置き換えるプロジェクトではない。Nav2 の既存アーキテクチャ、Behavior Tree、Lifecycle Node、Planner / Controller Plugin、Costmap、安全機構を最大限活かし、その上に Diffusion / Flow Matching / Consistency / Transformer / World Model 系の生成型ナビゲーションモデルを安全に接続するための OSS 基盤として設計する。
 
 Nav2 はすでに、BT で複数のモジュラーサーバーをオーケストレーションし、Planner / Controller / Recovery 系プラグインを複数持てる構造を備えている。入力として TF、map、センサーデータ等を受け取り、最終的にモーター向けの速度指令を出す構成である。したがって本 OSS の勝ち筋は、Nav2 を fork することではなく、**Nav2 Native な plugin として「生成モデルが提案し、決定論的安全層が検証し、Nav2 が実行する」構造を作ること** にある。
 
-重要な設計判断は、プロジェクト名は `RobotEscapeRoom` であっても、最初の実用 MVP は **Nav2 Controller Plugin モード** を中心にすることだ。Nav2 において Planner Server は主にパス計画、Controller Server は局所環境での制御努力生成・パス追従・動的障害物回避を担うため、Future Trajectory Candidates、Best Trajectory、Velocity Commands を扱う本 OSS は、Nav2 Controller Server との親和性が最も高い。
+重要な設計判断は、プロジェクト名は `Nav2PlannerBattle` であっても、最初の実用 MVP は **Nav2 Controller Plugin モード** を中心にすることだ。Nav2 において Planner Server は主にパス計画、Controller Server は局所環境での制御努力生成・パス追従・動的障害物回避を担うため、Future Trajectory Candidates、Best Trajectory、Velocity Commands を扱う本 OSS は、Nav2 Controller Server との親和性が最も高い。
 
 ---
 
@@ -61,7 +61,7 @@ Regulated Pure Pursuit はサービス・産業ロボット用途を意識した
 
 ### 2.1 Project Vision
 
-3年後、`RobotEscapeRoom` は以下の状態を目指す。
+3年後、`Nav2PlannerBattle` は以下の状態を目指す。
 
 > **「Nav2 で生成型ナビゲーションを試すなら、まずこの OSS を使う」**
 
@@ -479,7 +479,7 @@ OSS 失敗の典型は、runtime に研究用 Python 依存を入れすぎるこ
 
 Nav2 は production-grade な navigation framework として、perception、planning、control、localization、visualization などを提供し、多数の企業で使われている。そのため、新しい OSS が勝つには「Nav2 の代替」ではなく「Nav2 の能力拡張」になる必要がある。
 
-`RobotEscapeRoom` は、既存 Nav2 bringup、map、costmap、BT、controller server、collision monitor、RViz、rosbag をそのまま活かす。これは採用障壁を大きく下げる。
+`Nav2PlannerBattle` は、既存 Nav2 bringup、map、costmap、BT、controller server、collision monitor、RViz、rosbag をそのまま活かす。これは採用障壁を大きく下げる。
 
 ### 15.2 研究と実運用の谷を埋める
 

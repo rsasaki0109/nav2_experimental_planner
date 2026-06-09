@@ -6,7 +6,7 @@
 
 VFH+（Ulrich & Borenstein, 1998）は、ロボット周囲の障害物を**極座標ヒストグラム**に積み、blocked / free の角度セクタに二値化して、**free な valley（隙間）**のうち目標方位・旋回量・操舵の滑らかさを最もよく満たす方向へ操舵する**反応的（reactive）**な局所回避法。各障害物をロボット半径ぶん**拡大**してから二値化するので、free なセクタは実際に通過可能になる。軌道ロールアウトを持たない分、雑然とした空間で安価かつ堅牢。
 
-Nav2 公式の局所コントローラ（DWB / MPPI / Regulated Pure Pursuit）は最適化ベースで、**VFH 系は無い**（`RobotEscapeRoom` = Nav2 に無い planner 群の一部）。これは本リポジトリ初の **Controller（Mode A）側**の classical 実装で、生成型 [nav2_diffusion_controller](../nav2_diffusion_controller/README.md) と同じ Controller seam に並ぶ。
+Nav2 公式の局所コントローラ（DWB / MPPI / Regulated Pure Pursuit）は最適化ベースで、**VFH 系は無い**（`Nav2PlannerBattle` = Nav2 に無い planner 群の一部）。これは本リポジトリ初の **Controller（Mode A）側**の classical 実装で、生成型 [nav2_diffusion_controller](../nav2_diffusion_controller/README.md) と同じ Controller seam に並ぶ。
 
 ## アルゴリズム
 

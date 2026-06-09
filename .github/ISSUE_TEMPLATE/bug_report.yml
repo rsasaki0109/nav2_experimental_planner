@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a defect in RobotEscapeRoom
+description: Report a defect in Nav2PlannerBattle
 labels: ["bug"]
 body:
   - type: markdown
@@ -23,7 +23,7 @@ body:
         - nav2_diffusion_msgs
         - nav2_diffusion_safety
         - nav2_diffusion_controller
-        - RobotEscapeRoom
+        - Nav2PlannerBattle
         - nav2_diffusion_bringup
         - nav2_diffusion_benchmarks
         - other / not sure

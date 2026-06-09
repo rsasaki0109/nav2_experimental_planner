@@ -8,7 +8,7 @@
     (nav2_core::Controller). Reasons about per-sector obstacle nearness, selects a
     navigable gap toward the goal, and applies a safety deflection that steers
     away from close obstacles (corridor centring). A different reactive paradigm
-    from VFH+; upstream Nav2 has neither. Part of RobotEscapeRoom:
+    from VFH+; upstream Nav2 has neither. Part of Nav2PlannerBattle:
     planners not in upstream Nav2.
   </description>
 

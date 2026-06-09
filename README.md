@@ -1,19 +1,19 @@
-# RobotEscapeRoom 🚪
+# Nav2PlannerBattle ⚔️
 
-[![CI](https://github.com/rsasaki0109/RobotEscapeRoom/actions/workflows/ci.yml/badge.svg)](https://github.com/rsasaki0109/RobotEscapeRoom/actions/workflows/ci.yml)
+[![CI](https://github.com/rsasaki0109/Nav2PlannerBattle/actions/workflows/ci.yml/badge.svg)](https://github.com/rsasaki0109/Nav2PlannerBattle/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![ROS 2 Jazzy](https://img.shields.io/badge/ROS_2-Jazzy-22314E?logo=ros&logoColor=white)](https://docs.ros.org/en/jazzy/)
-[![Play online](https://img.shields.io/badge/▶_Play-Escape_Room_online-ffd34d?style=for-the-badge)](https://rsasaki0109.github.io/RobotEscapeRoom/)
+[![Play Battle](https://img.shields.io/badge/▶_Play-Battle_online-ffd34d?style=for-the-badge)](https://rsasaki0109.github.io/Nav2PlannerBattle/)
 
-**Robots escape the maze — real Nav2 planners & controllers, head-to-head in the browser.**
+**Real Nav2 planners & controllers, head-to-head — browser + benchmarks.**
 
 > Learned models propose. Classical safety disposes. Nav2 executes.
 
 <p align="center">
-  <a href="https://rsasaki0109.github.io/RobotEscapeRoom/"><img src="docs/battle_race.gif" width="640" alt="Robot Escape Room — Mode A race"></a>
+  <a href="https://rsasaki0109.github.io/Nav2PlannerBattle/"><img src="docs/battle_race.gif" width="640" alt="Nav2 Planner Battle — Mode A race"></a>
 </p>
 
-<p align="center"><strong><a href="https://rsasaki0109.github.io/RobotEscapeRoom/">▶ Play online</a></strong> · no install · real <code>battle_trace</code> plugins</p>
+<p align="center"><strong><a href="https://rsasaki0109.github.io/Nav2PlannerBattle/">▶ Play online</a></strong> · no install · real <code>battle_trace</code> plugins</p>
 
 <p align="center">
   <img src="docs/battle_maze.gif" width="310" alt="Micro-mouse maze">
@@ -22,7 +22,7 @@
 </p>
 
 <p align="center">
-  <a href="https://rsasaki0109.github.io/RobotEscapeRoom/?m=C"><img src="docs/battle_championship.gif" width="420" alt="Championship — aggregate rankings"></a>
+  <a href="https://rsasaki0109.github.io/Nav2PlannerBattle/?m=C"><img src="docs/battle_championship.gif" width="420" alt="Championship — aggregate rankings"></a>
 </p>
 
 <p align="center"><strong>Gazebo replay</strong> · multiple TurtleBot3 · same <code>battle_trace</code> paths</p>
@@ -39,13 +39,13 @@
 
 ---
 
-## Robot Escape Room
+## Planner Battle
 
 | Mode | What | Play |
 |---|---|---|
-| **🏁 Race** | Controllers race to goal (VFH+, ND, learned, threading, …) | [frontal](https://rsasaki0109.github.io/RobotEscapeRoom/?m=A&s=1) · [maze](https://rsasaki0109.github.io/RobotEscapeRoom/?m=A&s=4) |
-| **🧭 Duel** | Global planners draw paths (RRT*, JPS, Diffusion, omni/diff/Ackermann, …) | [slalom](https://rsasaki0109.github.io/RobotEscapeRoom/?m=B&s=6) · [kinematics gap](https://rsasaki0109.github.io/RobotEscapeRoom/?m=B&s=3) · [hard maze](https://rsasaki0109.github.io/RobotEscapeRoom/?m=B&s=9) |
-| **🏆 Championship** | Points across all scenarios | [Race](https://rsasaki0109.github.io/RobotEscapeRoom/?m=C) · [Duel](https://rsasaki0109.github.io/RobotEscapeRoom/?m=C&sub=B) |
+| **🏁 Race** | Controllers race to goal (VFH+, ND, learned, threading, …) | [frontal](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=A&s=1) · [maze](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=A&s=4) |
+| **🧭 Duel** | Global planners draw paths (RRT*, JPS, Diffusion, omni/diff/Ackermann, …) | [slalom](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=B&s=6) · [kinematics gap](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=B&s=3) · [hard maze](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=B&s=9) |
+| **🏆 Championship** | Points across all scenarios | [Race](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=C) · [Duel](https://rsasaki0109.github.io/Nav2PlannerBattle/?m=C&sub=B) |
 
 Real `nav2_core` plugins — no scripted winners. Traces: `ros2 run nav2_planner_benchmarks battle_trace` · browser GIFs: [`tools/record_battle_gif.py`](tools/record_battle_gif.py) · Gazebo GIFs: [`tools/record_battle_gazebo_gif.py`](tools/record_battle_gazebo_gif.py) · **your ONNX:** [`docs/custom_model_battle.md`](docs/custom_model_battle.md)
 

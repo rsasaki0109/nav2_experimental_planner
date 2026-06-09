@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2026 RobotEscapeRoom contributors
+# Copyright 2026 Nav2PlannerBattle contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-Render Robot Escape Room README GIFs in a Lichtblick / RViz-style view.
+Render Nav2 Planner Battle README GIFs in a Lichtblick / RViz-style view.
 
 Every pose and path comes from ``battle_trace`` (real plugins). The look matches
 ``tools/mcap_view_gif.py`` — dark viewer background, costmap-red obstacles,
@@ -41,7 +41,7 @@ from matplotlib.patches import Polygon, Rectangle  # noqa: E402
 import numpy as np  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATA_PATH = os.path.join(HERE, 'robot_escape_room', 'battle_data.json')
+DATA_PATH = os.path.join(HERE, 'nav2_planner_battle', 'battle_data.json')
 DOCS = os.path.join(HERE, '..', 'docs')
 
 # Lichtblick / Foxglove palette (see tools/mcap_view_gif.py)

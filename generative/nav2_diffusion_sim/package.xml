@@ -4,7 +4,7 @@
   <name>nav2_diffusion_sim</name>
   <version>0.11.0</version>
   <description>
-    Closed-loop Gazebo course assets for RobotEscapeRoom: obstacle
+    Closed-loop Gazebo course assets for Nav2PlannerBattle: obstacle
     worlds (gz-sim SDF), matching occupancy maps, and mission goals generated
     from a single course spec so the world, map, and goals stay consistent. The
     courses mirror the off-line planner_benchmark obstacle scenarios (centred gap

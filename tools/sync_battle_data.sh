@@ -2,7 +2,7 @@
 # Regenerate battle_data.json/js from battle_trace (requires sourced ROS workspace).
 set -eo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT="$ROOT/tools/robot_escape_room"
+OUT="$ROOT/tools/nav2_planner_battle"
 set +u
 if [[ -f "$ROOT/install/setup.bash" ]]; then
   source "$ROOT/install/setup.bash"

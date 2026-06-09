@@ -4,7 +4,7 @@
   <name>nav2_diffusion_rviz_plugins</name>
   <version>0.11.0</version>
   <description>
-    Visualization helpers for RobotEscapeRoom: converts trajectory
+    Visualization helpers for Nav2PlannerBattle: converts trajectory
     candidates into RViz markers (best / safe / rejected) so the controller's
     behavior is explainable. See docs/architecture.md section 3.4.
   </description>

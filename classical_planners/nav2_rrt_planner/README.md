@@ -7,7 +7,7 @@
 
 **Status: 実装あり（ビルド & lint 通過 / pluginlib 登録・closed-loop 統合テスト済み）。classical（非AI）planner。**
 
-Nav2 公式の global planner は NavFn / Smac(A*, Hybrid-A*, State Lattice) / Theta\* と**すべてグリッド探索ベース**で、**サンプリングベースの planner が存在しない**。本パッケージはその空白を埋める classical なサンプリング planner を nav2_core プラグインとして提供する（`RobotEscapeRoom` = Nav2 に無い planner 群の一部）。
+Nav2 公式の global planner は NavFn / Smac(A*, Hybrid-A*, State Lattice) / Theta\* と**すべてグリッド探索ベース**で、**サンプリングベースの planner が存在しない**。本パッケージはその空白を埋める classical なサンプリング planner を nav2_core プラグインとして提供する（`Nav2PlannerBattle` = Nav2 に無い planner 群の一部）。
 
 ## RRT\* (`RRTStarPlanner`)
 

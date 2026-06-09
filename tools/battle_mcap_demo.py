@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2026 RobotEscapeRoom contributors
+# Copyright 2026 Nav2PlannerBattle contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 # limitations under the License.
 
 """
-Export Robot Escape Room scenarios to MCAP for Lichtblick / Foxglove.
+Export Nav2 Planner Battle scenarios to MCAP for Lichtblick / Foxglove.
 
 Topics (map frame, same names ``record_rviz_gif.py`` publishes live):
   /battle/costmap          nav_msgs/OccupancyGrid
@@ -39,7 +39,7 @@ import struct
 from mcap_ros2.writer import Writer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(HERE, 'robot_escape_room', 'battle_data.json')
+DATA = os.path.join(HERE, 'nav2_planner_battle', 'battle_data.json')
 DOCS = os.path.join(HERE, '..', 'docs')
 RES = 0.05
 
