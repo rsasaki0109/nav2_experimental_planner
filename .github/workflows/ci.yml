@@ -42,6 +42,17 @@ jobs:
           apt-get install -y --no-install-recommends \
             lcov python3-colcon-lcov-result python3-colcon-coveragepy-result
 
+      # nav2_diffusion_onnx (and battle_trace golden comparison) need the C++
+      # onnxruntime backend; the ros-base image does not ship it.
+      - name: Install ONNX Runtime
+        run: |
+          ORT_VERSION=1.24.2
+          curl -L -o /tmp/onnxruntime.tgz \
+            "https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-linux-x64-${ORT_VERSION}.tgz"
+          tar -xzf /tmp/onnxruntime.tgz -C /opt
+          echo "ORT_PREFIX=/opt/onnxruntime-linux-x64-${ORT_VERSION}" >> "${GITHUB_ENV}"
+          echo "LD_LIBRARY_PATH=/opt/onnxruntime-linux-x64-${ORT_VERSION}/lib:${LD_LIBRARY_PATH}" >> "${GITHUB_ENV}"
+
       # Builds the C++/msgs packages with colcon and runs colcon test, which
       # includes the ament lints (copyright, cpplint, uncrustify, lint_cmake,
       # xmllint) and the gtest suites. See docs/architecture.md section 12.4.
@@ -49,6 +60,8 @@ jobs:
         uses: ros-tooling/action-ros-ci@v0.4
         with:
           target-ros2-distro: ${{ matrix.ros_distro }}
+          extra-cmake-args: >-
+            -Donnxruntime_DIR=/opt/onnxruntime-linux-x64-1.24.2/lib/cmake/onnxruntime
           package-name: |
             nav2_diffusion_msgs
             nav2_diffusion_core
