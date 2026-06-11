@@ -98,7 +98,7 @@ Matplotlib / RViz fallbacks: ``tools/battle_gif_demo.py``, ``tools/record_rviz_g
 ```bash
 source /opt/ros/jazzy/setup.bash
 python3 tools/record_battle_gazebo_gif.py
-# writes docs/battle_gazebo_race.gif, battle_gazebo_maze.gif, battle_gazebo_duel.gif
+# writes docs/battle_gazebo_race.gif, battle_gazebo_maze.gif
 ```
 
 Optional gz-sim single-robot drive (A* route): ``PYTHONPATH=generative/nav2_diffusion_sim python3 tools/gazebo_gif_demo.py``.

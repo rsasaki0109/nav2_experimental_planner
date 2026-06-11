@@ -16,14 +16,14 @@
 """
 Record README battle GIFs from the real browser Nav2 Planner Battle UI.
 
-Every fighter (all controllers / planners in the scenario) moves on the arena
-canvas with coloured trails, heading arrows, LIVE HUD, collisions and goal flags.
+Renders in GIF mode (action-cropped viewport, HUD strip above the arena,
+agent label tags, finish banner) at native target resolution, then encodes
+with ffmpeg two-pass palette optimization.
 
 Usage::
 
-    python3 tools/record_battle_gif.py
-    # writes docs/battle_race.gif, battle_maze.gif, battle_duel.gif,
-    # battle_championship.gif
+    python3 tools/record_battle_gif.py            # all jobs
+    python3 tools/record_battle_gif.py --job race # one job
 """
 
 from __future__ import annotations
@@ -35,21 +35,28 @@ import threading
 import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
-import imageio.v2 as imageio
 import numpy as np
 from PIL import Image
 from playwright.sync_api import sync_playwright
+
+from gif_writer import write_gif
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BATTLE = os.path.join(HERE, 'nav2_planner_battle')
 DOCS = os.path.join(HERE, '..', 'docs')
 
-_JOBS = [
-    # mode, scenario_idx, outfile, stride, duration, upscale
-    ('A', 1, 'battle_race.gif', 2, 0.07, 1.15),
-    ('A', 4, 'battle_maze.gif', 2, 0.08, 1.0),
-    ('B', 3, 'battle_duel.gif', 2, 0.09, 1.0),
-]
+_JOBS = {
+    'race': dict(mode='A', sc=1, out='battle_race.gif', target_width=800,
+                 stride=2, fps=14, first_hold=6, end_hold=22, budget_mb=4.0),
+    'maze': dict(mode='A', sc=4, out='battle_maze.gif', target_width=640,
+                 stride=3, fps=12, first_hold=5, end_hold=18, budget_mb=2.5),
+    'duel': dict(mode='B', sc=3, out='battle_duel.gif', target_width=560,
+                 stride=2, fps=11, first_hold=5, end_hold=18, budget_mb=2.5),
+}
+_CHAMP = dict(out='battle_championship.gif', target_width=640,
+              stride=1, fps=8, end_hold=12, budget_mb=1.5)
+# Canvas CSS background (#0a1330) — used to letterbox-pad championship frames.
+_BG = (10, 19, 48)
 
 
 class _QuietHandler(SimpleHTTPRequestHandler):
@@ -66,82 +73,99 @@ def _start_http(port):
     return server
 
 
-def _capture_canvas(page, upscale):
+def _capture_canvas(page):
     raw = page.locator('#cv').screenshot()
     img = Image.open(io.BytesIO(raw)).convert('RGB')
-    if upscale != 1.0:
-        w = int(img.width * upscale)
-        h = int(img.height * upscale)
-        img = img.resize((w, h), Image.Resampling.LANCZOS)
     return np.array(img)
 
 
-def record_gif(mode, sc_idx, out_name, port, stride, duration, upscale, headless):
-    out_path = os.path.join(DOCS, out_name)
+def _capture_frames(page, stride):
+    max_f = page.evaluate('() => window.__battleGif.maxFrames()')
+    images = []
+    last = -1
+    for i in range(0, max_f + 1, stride):
+        page.evaluate('(n) => window.__battleGif.setFrame(n)', i)
+        images.append(_capture_canvas(page))
+        last = i
+    if last != max_f:  # always land on the final frame (finish banner)
+        page.evaluate('(n) => window.__battleGif.setFrame(n)', max_f)
+        images.append(_capture_canvas(page))
+    return images
+
+
+def record_gif(job, port, headless):
+    out_path = os.path.join(DOCS, job['out'])
     url = 'http://127.0.0.1:{}/'.format(port)
+    opts = {'crop': True, 'targetWidth': job['target_width'],
+            'hudStrip': True, 'banner': True}
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=headless)
-        page = browser.new_page(viewport={'width': 900, 'height': 900})
+        page = browser.new_page(viewport={'width': 1280, 'height': 1024})
         page.goto(url, wait_until='networkidle', timeout=60000)
         page.wait_for_function('window.__battleGif')
-        page.evaluate(
-            '([m,s]) => window.__battleGif.setup(m, s)', [mode, sc_idx])
+        page.evaluate('([m,s,o]) => window.__battleGif.setup(m, s, o)',
+                      [job['mode'], job['sc'], opts])
         time.sleep(0.3)
-        max_f = page.evaluate('() => window.__battleGif.maxFrames()')
-        images = []
-        for i in range(0, max_f + 1, stride):
-            page.evaluate('(n) => window.__battleGif.setFrame(n)', i)
-            images.append(_capture_canvas(page, upscale))
-        for _ in range(8):
-            images.append(images[-1])
+        size = page.evaluate('() => window.__battleGif.canvasSize()')
+        print('{}: canvas {}x{}'.format(job['out'], size[0], size[1]))
+        images = _capture_frames(page, job['stride'])
         browser.close()
+    images = [images[0]] * job['first_hold'] + images
+    images += [images[-1]] * job['end_hold']
     os.makedirs(DOCS, exist_ok=True)
-    imageio.mimsave(out_path, images, duration=duration, loop=0)
-    print('wrote {} ({} frames, {} fighters)'.format(
-        out_path, len(images), 'all'))
+    write_gif(out_path, images, fps=job['fps'], budget_mb=job['budget_mb'])
 
 
-def record_championship_gif(out_name, port, stride, duration, upscale, headless):
-    out_path = os.path.join(DOCS, out_name)
+def _pad_to(img, w, h):
+    if img.shape[1] == w and img.shape[0] == h:
+        return img
+    out = np.full((h, w, 3), _BG, dtype=np.uint8)
+    out[:img.shape[0], :img.shape[1]] = img
+    return out
+
+
+def record_championship_gif(port, headless):
+    job = _CHAMP
+    out_path = os.path.join(DOCS, job['out'])
     url = 'http://127.0.0.1:{}/'.format(port)
     images = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=headless)
-        page = browser.new_page(viewport={'width': 900, 'height': 900})
+        page = browser.new_page(viewport={'width': 1280, 'height': 1024})
         page.goto(url, wait_until='networkidle', timeout=120000)
         page.wait_for_function('window.__battleGif', timeout=120000)
         for sub in ('A', 'B'):
             page.evaluate(
-                '(s) => window.__battleGif.setupChampionship(s)', sub)
+                '([s,o]) => window.__battleGif.setupChampionship(s, o)',
+                [sub, {'targetWidth': job['target_width']}])
             time.sleep(0.3)
-            max_f = page.evaluate('() => window.__battleGif.maxFrames()')
-            for i in range(0, max_f + 1, stride):
-                page.evaluate('(n) => window.__battleGif.setFrame(n)', i)
-                images.append(_capture_canvas(page, upscale))
-            for _ in range(10):
-                images.append(images[-1])
+            images.extend(_capture_frames(page, job['stride']))
+            images += [images[-1]] * job['end_hold']
         browser.close()
+    # Mode A (7 rows) and Mode B (8 rows) canvases differ in height — pad.
+    w = max(i.shape[1] for i in images)
+    h = max(i.shape[0] for i in images)
+    images = [_pad_to(i, w, h) for i in images]
     os.makedirs(DOCS, exist_ok=True)
-    imageio.mimsave(out_path, images, duration=duration, loop=0)
-    print('wrote {} ({} frames, race + duel championship)'.format(
-        out_path, len(images)))
+    write_gif(out_path, images, fps=job['fps'], dither='none',
+              budget_mb=job['budget_mb'])
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--port', type=int, default=8766)
     parser.add_argument('--headed', action='store_true')
+    parser.add_argument('--job', default='all',
+                        choices=['all', 'race', 'maze', 'duel', 'champ'])
     args = parser.parse_args()
 
     server = _start_http(args.port)
     try:
-        for mode, sc_idx, out_name, stride, duration, upscale in _JOBS:
-            record_gif(
-                mode, sc_idx, out_name, args.port, stride, duration, upscale,
-                headless=not args.headed)
-        record_championship_gif(
-            'battle_championship.gif', args.port, 1, 0.12, 1.0,
-            headless=not args.headed)
+        for name, job in _JOBS.items():
+            if args.job in ('all', name):
+                record_gif(job, args.port, headless=not args.headed)
+        if args.job in ('all', 'champ'):
+            record_championship_gif(args.port, headless=not args.headed)
     finally:
         server.shutdown()
 

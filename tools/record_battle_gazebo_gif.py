@@ -23,7 +23,7 @@ come from a perspective scene camera (not the flat browser canvas).
 Usage::
 
     python3 tools/record_battle_gazebo_gif.py
-    # writes docs/battle_gazebo_race.gif, battle_gazebo_maze.gif, battle_gazebo_duel.gif
+    # writes docs/battle_gazebo_race.gif, battle_gazebo_maze.gif
 
 Requires: ROS 2 Jazzy, gz-sim, turtlebot3_gazebo, ros_gz_image, built workspace optional.
 """
@@ -39,16 +39,19 @@ import subprocess
 import sys
 import time
 
-import imageio.v2 as imageio
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+
+from gif_writer import write_gif
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOCS = os.path.join(HERE, '..', 'docs')
 BATTLE_JSON = os.path.join(HERE, 'nav2_planner_battle', 'battle_data.json')
 TB3_SDF = '/opt/ros/jazzy/share/turtlebot3_gazebo/models/turtlebot3_waffle/model.sdf'
 ROS_SETUP = '/opt/ros/jazzy/setup.bash'
-CAM_W, CAM_H = 960, 540
+CAM_W, CAM_H = 1280, 720       # capture resolution
+OUT_W, OUT_H = 960, 540        # GIF output (LANCZOS downscale)
+CAM_HFOV = 1.05
 SIM_WARMUP_SEC = 8.0
 WALL_H = 0.45
 
@@ -60,7 +63,6 @@ COLORS = [
 JOBS = [
     ('A', 1, 'battle_gazebo_race.gif', 6, 'Nav2 Planner Battle · Gazebo · Mode A frontal race'),
     ('A', 4, 'battle_gazebo_maze.gif', 6, 'Nav2 Planner Battle · Gazebo · micro-mouse easy'),
-    ('B', 3, 'battle_gazebo_duel.gif', 6, 'Nav2 Planner Battle · Gazebo · Mode B off-centre gap'),
 ]
 
 
@@ -118,9 +120,20 @@ def _load_battle(path=BATTLE_JSON):
         return json.load(fh)
 
 
-def _rgb01_to_ambient(rgb):
-    r, g, b = rgb
-    return '{} {} {} 1'.format(r, g, b)
+# ogre2 renders in linear color space and gamma-converts to sRGB on output,
+# so material colors must be specified as linear albedo. k compensates for
+# the total incident light (sun + fill + ambient ≈ 1.7).
+def _lin(rgb, k=1.7):
+    return tuple(round((c ** 2.2) / k, 4) for c in rgb)
+
+
+def _lin_str(rgb, k=1.7):
+    return '{} {} {} 1'.format(*_lin(rgb, k))
+
+
+FLOOR_RGB = (0.078, 0.106, 0.204)   # brand --panel #141b34
+WALL_RGB = (0.20, 0.25, 0.435)      # browser obstacle #33406f
+GOLD_RGB = (1.0, 0.827, 0.302)      # brand --gold #ffd34d
 
 
 def _rect_obstacle_sdf(idx, rect):
@@ -136,14 +149,17 @@ def _rect_obstacle_sdf(idx, rect):
         '        </collision>\n'
         '        <visual name="visual">\n'
         '          <geometry><box><size>{w} {h} {wall}</size></box></geometry>\n'
-        '          <material><ambient>0.65 0.18 0.18 1</ambient>'
-        '<diffuse>0.75 0.2 0.2 1</diffuse></material>\n'
+        '          <material><ambient>{mat}</ambient>'
+        '<diffuse>{mat}</diffuse>'
+        '<specular>0.02 0.02 0.02 1</specular>'
+        '<emissive>{emi}</emissive></material>\n'
         '        </visual>\n'
         '      </link>\n'
         '    </model>\n'
     ).format(
         idx=idx, cx=cx, cy=cy, hz=WALL_H / 2.0,
-        w=rect['w'], h=rect['h'], wall=WALL_H)
+        w=rect['w'], h=rect['h'], wall=WALL_H, mat=_lin_str(WALL_RGB),
+        emi='{} {} {} 1'.format(*(round(c * 0.35, 4) for c in _lin(WALL_RGB))))
 
 
 def _arena_floor(arena):
@@ -155,24 +171,51 @@ def _arena_floor(arena):
         '      <link name="link">\n'
         '        <visual name="visual">\n'
         '          <geometry><box><size>{w} {h} 0.02</size></box></geometry>\n'
-        '          <material><ambient>0.55 0.58 0.62 1</ambient>'
-        '<diffuse>0.62 0.65 0.7 1</diffuse></material>\n'
+        '          <material><ambient>{mat}</ambient>'
+        '<diffuse>{mat}</diffuse>'
+        '<specular>0.02 0.02 0.02 1</specular></material>\n'
         '        </visual>\n'
         '      </link>\n'
         '    </model>\n'
-    ).format(cx=w / 2.0, cy=h / 2.0, w=w + 0.4, h=h + 0.4)
+    ).format(cx=w / 2.0, cy=h / 2.0, w=w + 0.4, h=h + 0.4,
+             mat=_lin_str(FLOOR_RGB))
 
 
-def _camera_block(arena):
-    w, h = arena['w'], arena['h']
-    span = max(w, h)
-    cam_x = -span * 0.35
-    cam_y = -span * 0.35
-    cam_z = span * 1.15
+def _action_bbox(scenario, fighters, arena, margin=0.45):
+    """Scene bbox: selected fighters' paths + start + goal + all obstacles."""
+    xs = [scenario['start'][0], scenario['goal'][0]]
+    ys = [scenario['start'][1], scenario['goal'][1]]
+    for f in fighters:
+        for p in (f.get('path') or []):
+            xs.append(p[0])
+            ys.append(p[1])
+    x0, y0 = min(xs) - margin, min(ys) - margin
+    x1, y1 = max(xs) + margin, max(ys) + margin
+    for r in (scenario.get('obstacles') or []):
+        x0 = min(x0, r['x'])
+        y0 = min(y0, r['y'])
+        x1 = max(x1, r['x'] + r['w'])
+        y1 = max(y1, r['y'] + r['h'])
+    x0, y0 = max(0.0, x0), max(0.0, y0)
+    x1, y1 = min(arena['w'], x1), min(arena['h'], y1)
+    return {'cx': (x0 + x1) / 2.0, 'cy': (y0 + y1) / 2.0,
+            'w': x1 - x0, 'h': y1 - y0}
+
+
+def _camera_block(bbox):
+    # Fit the camera distance to the bbox diagonal so robots fill the frame
+    # instead of floating in a mostly-empty arena shot.
+    diag = math.hypot(bbox['w'], bbox['h'])
+    dist = diag / (2.0 * math.tan(CAM_HFOV / 2.0)) * 1.08
+    elev = 0.58  # rad above horizon
+    horiz = dist * math.cos(elev) / math.sqrt(2.0)
+    cam_x = bbox['cx'] - horiz
+    cam_y = bbox['cy'] - horiz
+    cam_z = dist * math.sin(elev)
     return (
         '    <model name="scene_camera">\n'
         '      <static>true</static>\n'
-        '      <pose>{cx} {cy} {cz} 0 0.62 0.785398</pose>\n'
+        '      <pose>{cx} {cy} {cz} 0 0.58 0.785398</pose>\n'
         '      <link name="link">\n'
         '        <sensor name="camera" type="camera">\n'
         '          <camera>\n'
@@ -200,31 +243,38 @@ def _goal_marker(gx, gy):
         '        <visual name="visual">\n'
         '          <geometry><cylinder><radius>0.18</radius><length>0.07</length>'
         '</cylinder></geometry>\n'
-        '          <material><ambient>0.95 0.75 0.1 1</ambient>'
-        '<diffuse>1.0 0.85 0.15 1</diffuse></material>\n'
+        '          <material><ambient>{mat}</ambient>'
+        '<diffuse>{mat}</diffuse>'
+        '<emissive>{emi}</emissive></material>\n'
         '        </visual>\n'
         '      </link>\n'
         '    </model>\n'
-    ).format(gx=gx, gy=gy)
+    ).format(gx=gx, gy=gy, mat=_lin_str(GOLD_RGB),
+             emi='{} {} {} 1'.format(*(round(c * 0.25, 4) for c in _lin(GOLD_RGB))))
 
 
 def _marker_sdf(idx, rgb):
-    amb = _rgb01_to_ambient(rgb)
+    amb = _lin_str(rgb)
+    emi = '{} {} {} 1'.format(*(round(c * 0.25, 4) for c in _lin(rgb)))
     return (
         '    <model name="marker_{idx}">\n'
         '      <static>true</static>\n'
         '      <pose>0 0 0.28 0 0 0</pose>\n'
         '      <link name="link">\n'
         '        <visual name="visual">\n'
-        '          <geometry><sphere><radius>0.11</radius></sphere></geometry>\n'
-        '          <material><ambient>{amb}</ambient><diffuse>{amb}</diffuse></material>\n'
+        '          <geometry><sphere><radius>0.15</radius></sphere></geometry>\n'
+        '          <material><ambient>{amb}</ambient><diffuse>{amb}</diffuse>'
+        '<emissive>{emi}</emissive></material>\n'
         '        </visual>\n'
         '      </link>\n'
         '    </model>\n'
-    ).format(idx=idx, amb=amb)
+    ).format(idx=idx, amb=amb, emi=emi)
 
 
-def battle_world_sdf(scenario, arena, n_markers=0):
+def battle_world_sdf(scenario, arena, n_markers=0, bbox=None):
+    if bbox is None:
+        bbox = {'cx': arena['w'] / 2.0, 'cy': arena['h'] / 2.0,
+                'w': arena['w'], 'h': arena['h']}
     head = (
         '<?xml version="1.0"?>\n'
         '<sdf version="1.6">\n'
@@ -236,10 +286,25 @@ def battle_world_sdf(scenario, arena, n_markers=0):
         '      <render_engine>ogre2</render_engine>\n'
         '    </plugin>\n'
         '    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>\n'
+        '    <scene>\n'
+        '      <ambient>0.25 0.25 0.3 1</ambient>\n'
+        '      <background>0.001 0.002 0.01 1</background>\n'
+        '      <shadows>true</shadows>\n'
+        '      <grid>false</grid>\n'
+        '    </scene>\n'
         '    <light name="sun" type="directional">\n'
         '      <cast_shadows>1</cast_shadows>\n'
         '      <pose>0 0 10 0 0 0</pose>\n'
         '      <direction>-0.5 0.15 -0.92</direction>\n'
+        '      <diffuse>0.8 0.8 0.85 1</diffuse>\n'
+        '      <specular>0.1 0.1 0.1 1</specular>\n'
+        '    </light>\n'
+        '    <light name="fill" type="directional">\n'
+        '      <cast_shadows>0</cast_shadows>\n'
+        '      <pose>0 0 10 0 0 0</pose>\n'
+        '      <direction>0.5 -0.3 -0.8</direction>\n'
+        '      <diffuse>0.25 0.25 0.3 1</diffuse>\n'
+        '      <specular>0 0 0 1</specular>\n'
         '    </light>\n'
         '    <model name="ground_plane">\n'
         '      <static>1</static>\n'
@@ -254,22 +319,27 @@ def battle_world_sdf(scenario, arena, n_markers=0):
         _rect_obstacle_sdf(i, r) for i, r in enumerate(scenario.get('obstacles') or []))
     gx, gy = scenario['goal']
     markers = ''.join(_marker_sdf(i, COLORS[i % len(COLORS)]) for i in range(n_markers))
-    body = _arena_floor(arena) + obs + _camera_block(arena) + _goal_marker(gx, gy) + markers
+    body = _arena_floor(arena) + obs + _camera_block(bbox) + _goal_marker(gx, gy) + markers
     return head + body + '  </world>\n</sdf>\n'
 
 
 def _overlay_title(frame, title, subtitle):
     img = Image.fromarray(frame)
+    if img.width != OUT_W:
+        img = img.resize((OUT_W, OUT_H), Image.Resampling.LANCZOS)
     draw = ImageDraw.Draw(img)
-    draw.rectangle((0, 0, img.width, 42), fill=(12, 20, 48))
+    draw.rectangle((0, 0, img.width, 52), fill=(12, 20, 48))
     try:
-        font = ImageFont.truetype('DejaVuSans-Bold.ttf', 17)
-        small = ImageFont.truetype('DejaVuSans.ttf', 13)
+        font = ImageFont.truetype('DejaVuSans-Bold.ttf', 20)
+        small = ImageFont.truetype('DejaVuSans.ttf', 14)
     except OSError:
         font = small = ImageFont.load_default()
-    draw.text((12, 8), title, fill=(232, 236, 255), font=font)
-    draw.text((12, 28), subtitle, fill=(139, 151, 196), font=small)
-    draw.text((12, img.height - 24), 'gz-sim · TB3 waffle × N · battle_trace replay',
+    draw.text((14, 7), title, fill=(232, 236, 255), font=font)
+    max_w = img.width - 28
+    while subtitle and draw.textlength(subtitle, font=small) > max_w:
+        subtitle = subtitle[:-2].rstrip() + '…'
+    draw.text((14, 32), subtitle, fill=(139, 151, 196), font=small)
+    draw.text((14, img.height - 26), 'gz-sim · TB3 waffle × N · battle_trace replay',
               fill=(180, 190, 220), font=small)
     return np.asarray(img)
 
@@ -414,7 +484,8 @@ class BattleGazeboRecorder:
         if not fighters:
             raise RuntimeError('no fighters in scenario')
 
-        sdf = battle_world_sdf(scenario, arena, len(fighters))
+        bbox = _action_bbox(scenario, fighters, arena)
+        sdf = battle_world_sdf(scenario, arena, len(fighters), bbox)
         if self._gz is None:
             self.start(sdf)
         else:
@@ -455,10 +526,9 @@ class BattleGazeboRecorder:
         return frames
 
 
-def _write_gif(path, frames, duration=0.11):
+def _write_gif(path, frames, fps=9):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    imageio.mimsave(path, frames, duration=duration, loop=0)
-    print('wrote {} ({} frames)'.format(os.path.normpath(path), len(frames)))
+    write_gif(os.path.normpath(path), frames, fps=fps, budget_mb=2.0)
 
 
 def main():
@@ -466,7 +536,7 @@ def main():
     parser.add_argument('--battle-json', default=BATTLE_JSON)
     parser.add_argument('--max-fighters', type=int, default=6)
     parser.add_argument('--stride', type=int, default=2)
-    parser.add_argument('--job', choices=['all', 'race', 'maze', 'duel'], default='all')
+    parser.add_argument('--job', choices=['all', 'race', 'maze'], default='all')
     args = parser.parse_args()
 
     if not os.path.isfile(TB3_SDF):
@@ -475,7 +545,7 @@ def main():
     _kill_stale_gz()
     data = _load_battle(args.battle_json)
     arena = data['arena']
-    job_map = {'race': 0, 'maze': 1, 'duel': 2}
+    job_map = {'race': 0, 'maze': 1}
     jobs = JOBS
     if args.job != 'all':
         jobs = [JOBS[job_map[args.job]]]

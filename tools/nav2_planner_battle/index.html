@@ -117,10 +117,20 @@ const DATA = window.BATTLE_DATA;
 const COLORS = ["#5ad1ff","#ff5d6c","#37e09a","#ffd34d","#c08bff","#ff9f43",
   "#52e0e0","#ff7bd5","#9be15d","#7aa2ff","#ff6fae","#d6e04d","#6be0b8","#ffa0a0"];
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
-const W = cv.width, H = cv.height, PAD = 16;
-let arena = DATA.arena, scale = (W - 2*PAD) / arena.w;
-const wx = x => PAD + x*scale;
-const wy = y => H - PAD - y*scale;           // flip: world y up
+const DEFAULT_W = cv.width, DEFAULT_H = cv.height, PAD = 16;
+let W = cv.width, H = cv.height;
+let arena = DATA.arena;
+let view = {x0: 0, y0: 0, w: arena.w, h: arena.h};
+let hudTop = 0;        // px reserved above the arena for the GIF HUD strip
+let GIF = null;        // GIF-recording options (null on the live page)
+let scale = 1;
+function applyLayout(){
+  scale = Math.min((W - 2*PAD)/view.w, (H - hudTop - 2*PAD)/view.h);
+}
+applyLayout();
+function resizeCanvas(w, h){ cv.width = w; cv.height = h; W = w; H = h; applyLayout(); }
+const wx = x => PAD + (x - view.x0)*scale;
+const wy = y => H - PAD - (y - view.y0)*scale;   // flip: world y up
 
 let mode = 'modeA', champSub = 'modeA', scIdx = 0, playing = false, t = 0, raf = null;
 let speed = 1, champReveal = -1; // -1 = show full ranking; 0..N = GIF reveal
@@ -212,20 +222,22 @@ function drawArena(){
     }
   }
   // obstacles
-  ctx.fillStyle='#33406f'; ctx.strokeStyle='#5566a8'; ctx.lineWidth=1.5;
+  ctx.fillStyle='#33406f'; ctx.strokeStyle='#5566a8'; ctx.lineWidth=GIF?2:1.5;
   (s.obstacles||[]).forEach(r=>{
     const x=wx(r.x), y=wy(r.y+r.h), w=r.w*scale, h=r.h*scale;
     ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h);
   });
   // start + goal
-  ctx.fillStyle='#37e09a'; circle(wx(s.start[0]),wy(s.start[1]),6);
-  ctx.fillStyle='#37e09a'; ctx.font='11px system-ui'; ctx.fillText('start',wx(s.start[0])+9,wy(s.start[1])-8);
+  const sr = GIF ? 9 : 6;
+  ctx.fillStyle='#37e09a'; circle(wx(s.start[0]),wy(s.start[1]),sr);
+  ctx.fillStyle='#37e09a'; ctx.font=GIF?'bold 13px system-ui':'11px system-ui';
+  ctx.fillText('start',wx(s.start[0])+sr+3,wy(s.start[1])-sr-2);
   drawGoal(wx(s.goal[0]),wy(s.goal[1]));
 }
 function circle(x,y,r){ ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill(); }
 function drawGoal(x,y){
   ctx.save(); ctx.translate(x,y);
-  const sq=5;
+  const sq=GIF?8:5;
   for(let i=0;i<3;i++)for(let k=0;k<3;k++){
     ctx.fillStyle=((i+k)%2)?'#0b1020':'#ffd34d'; ctx.fillRect(-sq*1.5+i*sq,-sq*1.5+k*sq,sq,sq);
   }
@@ -233,6 +245,27 @@ function drawGoal(x,y){
   ctx.restore();
 }
 function colorFor(i){ return COLORS[i%COLORS.length]; }
+
+// Bounding box of the scene (paths + start + goal + every obstacle),
+// expanded by margin and clamped to the arena. Obstacles are always
+// included — cropping walls out of a maze reads as an open field.
+function actionBBox(sc, margin){
+  let x0=Infinity, y0=Infinity, x1=-Infinity, y1=-Infinity;
+  const add=(x,y)=>{ x0=Math.min(x0,x); y0=Math.min(y0,y); x1=Math.max(x1,x); y1=Math.max(y1,y); };
+  add(sc.start[0], sc.start[1]); add(sc.goal[0], sc.goal[1]);
+  sc.fighters.forEach(f=>{
+    if(mode==='modeB' && !f.success) return;
+    (f.path||[]).forEach(p=>add(p[0],p[1]));
+  });
+  x0-=margin; y0-=margin; x1+=margin; y1+=margin;
+  (sc.obstacles||[]).forEach(r=>{
+    x0=Math.min(x0,r.x); y0=Math.min(y0,r.y);
+    x1=Math.max(x1,r.x+r.w); y1=Math.max(y1,r.y+r.h);
+  });
+  x0=Math.max(0,x0); y0=Math.max(0,y0);
+  x1=Math.min(arena.w,x1); y1=Math.min(arena.h,y1);
+  return {x0, y0, w:x1-x0, h:y1-y0};
+}
 
 function pathLenTo(path, idx){
   let total = 0;
@@ -320,6 +353,7 @@ function liveMetricsB(f){
 
 function drawHud(){
   if(isChamp()) return;
+  if(GIF) return drawGifHud();
   const rows = (mode==='modeA' ? rankA() : rankB()).slice(0, 5);
   const met = scenarioMetrics();
   const lineH = mode==='modeA' ? 28 : 18;
@@ -381,36 +415,148 @@ function drawHud(){
   ctx.restore();
 }
 
+// Compact GIF HUD: full-width strip above the arena (title + frame counter
+// left, top-4 ranking chips right). Replaces the in-arena overlay panel,
+// which is unreadable at README display widths.
+function drawGifHud(){
+  ctx.save();
+  ctx.fillStyle='#0e142a';
+  ctx.fillRect(0,0,W,hudTop);
+  ctx.strokeStyle='#25305c'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(0,hudTop-.5); ctx.lineTo(W,hudTop-.5); ctx.stroke();
+  const sc = curScenario();
+  const kind = mode==='modeA' ? '🏁 RACE' : '🧭 DUEL';
+  ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.font='bold 15px system-ui'; ctx.fillStyle='#e8ecff';
+  const title = `${kind} · ${sc.name}`;
+  ctx.fillText(title, 14, hudTop/2 - 10);
+  const titleW = ctx.measureText(title).width;
+  ctx.font='11px system-ui'; ctx.fillStyle='#8b97c4';
+  ctx.fillText(`real nav2_core plugins · frame ${t}/${maxFrames()}`, 14, hudTop/2 + 11);
+  const rows = (mode==='modeA' ? rankA() : rankB()).slice(0, 4);
+  ctx.font='bold 12px system-ui';
+  const chips = rows.map((r,k)=>{
+    let metric;
+    if(mode==='modeA'){
+      const m = liveMetricsA(r.f);
+      metric = m.done && r.f.outcome!=='reached' ? r.f.outcome : `${m.length.toFixed(1)} m`;
+    } else {
+      const m = liveMetricsB(r.f);
+      metric = m ? `${(m.done?m.total:m.length).toFixed(2)} m` : 'no path';
+    }
+    const text = `${k+1} ${r.f.label} · ${metric}`;
+    return {r, text, w: ctx.measureText(text).width + 32};
+  });
+  while(chips.length && chips.reduce((a,c)=>a+c.w+8,0) > W - titleW - 40) chips.pop();
+  let x = W - 12;
+  for(let k=chips.length-1; k>=0; k--){
+    const c = chips[k];
+    x -= c.w;
+    ctx.fillStyle='rgba(27,37,71,.92)';
+    ctx.beginPath(); ctx.roundRect(x, hudTop/2-12, c.w, 24, 12); ctx.fill();
+    ctx.fillStyle=colorFor(c.r.i);
+    circle(x+13, hudTop/2, 4.5);
+    ctx.fillStyle = k===0 ? '#ffd34d' : '#e8ecff';
+    ctx.fillText(c.text, x+23, hudTop/2+1);
+    x -= 8;
+  }
+  ctx.restore();
+}
+
+// Small label pill near each agent (GIF mode, Mode A) so fighters stay
+// identifiable at README widths; skipped when agents overlap.
+function drawAgentTags(fs){
+  ctx.save();
+  ctx.font='bold 11px system-ui'; ctx.textAlign='left'; ctx.textBaseline='middle';
+  const placed=[];
+  fs.forEach((f,i)=>{
+    const idx=Math.min(t, f.path.length-1);
+    const p=f.path[idx];
+    const x=wx(p[0]), y=wy(p[1]);
+    if(placed.some(q=>Math.hypot(q[0]-x, q[1]-y) < 22)) return;
+    placed.push([x,y]);
+    const tw=ctx.measureText(f.label).width;
+    const tx=x+12, ty=y-16;
+    ctx.fillStyle='rgba(5,8,20,.85)';
+    ctx.beginPath(); ctx.roundRect(tx-5, ty-9, tw+10, 18, 6); ctx.fill();
+    ctx.fillStyle=colorFor(i);
+    ctx.fillText(f.label, tx, ty+1);
+  });
+  ctx.restore();
+}
+
+function drawFinishBanner(){
+  if(!GIF || GIF.banner===false || t < maxFrames()) return;
+  const r = (mode==='modeA' ? rankA() : rankB())[0];
+  if(!r) return;
+  const col = colorFor(r.i);
+  let result;
+  if(mode==='modeA'){
+    result = r.f.outcome==='reached' ? `reached in ${r.f.steps} steps` : r.f.outcome;
+  } else {
+    result = r.f.success ? `${r.f.length.toFixed(2)} m · ${r.f.time_ms.toFixed(1)} ms` : 'no path';
+  }
+  const bw = Math.min(W*0.7, 420), bh = 72;
+  const bx = (W-bw)/2, by = hudTop + (H-hudTop)/2 - bh/2;
+  ctx.save();
+  ctx.fillStyle='rgba(10,16,38,.94)';
+  ctx.strokeStyle='#ffd34d'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.roundRect(bx,by,bw,bh,12); ctx.fill(); ctx.stroke();
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font='bold 13px system-ui'; ctx.fillStyle='#ffd34d';
+  ctx.fillText('🏁 WINNER', W/2, by+17);
+  ctx.font='bold 18px system-ui'; ctx.fillStyle=col;
+  ctx.fillText(r.f.label, W/2, by+39);
+  ctx.font='12px system-ui'; ctx.fillStyle='#8b97c4';
+  ctx.fillText(result, W/2, by+58);
+  ctx.restore();
+}
+
 function drawModeA(){
   drawArena();
   const fs = fighters();
   fs.forEach((f,i)=>{
     const col = colorFor(i);
     const idx = Math.min(t, f.path.length-1);
-    // trail
-    ctx.strokeStyle=col; ctx.globalAlpha=.55; ctx.lineWidth=2; ctx.beginPath();
+    // trail (GIF: dark halo underneath for contrast, thicker stroke)
+    ctx.lineCap='round'; ctx.lineJoin='round';
+    if(GIF){
+      ctx.strokeStyle='rgba(5,8,20,.6)'; ctx.lineWidth=6.5; ctx.beginPath();
+      for(let k=0;k<=idx;k++){ const p=f.path[k]; (k?ctx.lineTo:ctx.moveTo).call(ctx,wx(p[0]),wy(p[1])); }
+      ctx.stroke();
+    }
+    ctx.strokeStyle=col; ctx.globalAlpha=GIF?.9:.7; ctx.lineWidth=GIF?4:2.5; ctx.beginPath();
     for(let k=0;k<=idx;k++){ const p=f.path[k]; (k?ctx.lineTo:ctx.moveTo).call(ctx,wx(p[0]),wy(p[1])); }
     ctx.stroke(); ctx.globalAlpha=1;
     const p=f.path[idx];
     const done = idx>=f.path.length-1;
     if(done && f.outcome==='collision'){
-      ctx.font='16px system-ui'; ctx.fillText('💥',wx(p[0])-8,wy(p[1])+6);
+      ctx.font=GIF?'24px system-ui':'16px system-ui'; ctx.fillText('💥',wx(p[0])-(GIF?12:8),wy(p[1])+(GIF?9:6));
     } else {
       drawRobotArrow(wx(p[0]), wy(p[1]), pathYaw(f.path, idx), col);
-      if(done && f.outcome==='reached'){ ctx.font='14px system-ui'; ctx.fillText('🏁',wx(p[0])+7,wy(p[1])-7); }
+      if(done && f.outcome==='reached'){
+        ctx.font=GIF?'20px system-ui':'14px system-ui';
+        ctx.fillText('🏁',wx(p[0])+(GIF?10:7),wy(p[1])-(GIF?10:7));
+      }
     }
   });
+  if(GIF && GIF.labels!==false) drawAgentTags(fs);
   drawHud();
+  drawFinishBanner();
 }
 
 function drawRobotArrow(x, y, yaw, col, scale=1){
+  const k = scale * (GIF ? 1.7 : 1) * Math.max(1, W/640);
   ctx.save();
-  ctx.shadowColor=col; ctx.shadowBlur=10*scale;
+  ctx.shadowColor=col; ctx.shadowBlur=10*k;
   ctx.translate(x,y); ctx.rotate(-yaw);
   ctx.fillStyle=col;
   ctx.beginPath();
-  ctx.moveTo(9*scale,0); ctx.lineTo(-6*scale,6*scale); ctx.lineTo(-6*scale,-6*scale);
+  ctx.moveTo(9*k,0); ctx.lineTo(-6*k,6*k); ctx.lineTo(-6*k,-6*k);
   ctx.closePath(); ctx.fill();
+  ctx.shadowBlur=0;
+  ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.lineWidth=1.5;
+  ctx.stroke();
   ctx.restore();
 }
 function pathYaw(path, idx){
@@ -433,16 +579,23 @@ function drawModeB(){
     if(!f.success || !f.path.length) return;
     const col = colorFor(i);
     const upto = Math.max(1, Math.floor(frac*f.path.length));
-    ctx.strokeStyle=col; ctx.lineWidth=2.6; ctx.globalAlpha=.88; ctx.beginPath();
+    ctx.lineCap='round'; ctx.lineJoin='round';
+    if(GIF){
+      ctx.strokeStyle='rgba(5,8,20,.55)'; ctx.lineWidth=6; ctx.beginPath();
+      for(let k=0;k<upto;k++){ const p=f.path[k]; (k?ctx.lineTo:ctx.moveTo).call(ctx,wx(p[0]),wy(p[1])); }
+      ctx.stroke();
+    }
+    ctx.strokeStyle=col; ctx.lineWidth=GIF?4:2.6; ctx.globalAlpha=GIF?.95:.88; ctx.beginPath();
     for(let k=0;k<upto;k++){ const p=f.path[k]; (k?ctx.lineTo:ctx.moveTo).call(ctx,wx(p[0]),wy(p[1])); }
     ctx.stroke(); ctx.globalAlpha=1;
     const hi = Math.min(upto, f.path.length)-1;
     const p=f.path[hi];
     const done = frac>=1;
     drawRobotArrow(wx(p[0]), wy(p[1]), pathYaw(f.path, hi), col, done?1.15:1);
-    if(done){ ctx.font='14px system-ui'; ctx.fillText('🏁',wx(p[0])+8,wy(p[1])-8); }
+    if(done){ ctx.font=GIF?'18px system-ui':'14px system-ui'; ctx.fillText('🏁',wx(p[0])+(GIF?11:8),wy(p[1])-(GIF?11:8)); }
   });
   drawHud();
+  drawFinishBanner();
 }
 
 function drawChampionship(){
@@ -728,10 +881,27 @@ window.__battleGif = {
     t = Math.max(0, Math.min(maxFrames(), n));
     draw();
   },
-  setup(m, s){
+  // opts (all optional): {crop:true, margin:0.45, targetWidth:640,
+  //   hudStrip:true, banner:true, labels:true} — omit opts entirely for the
+  //   legacy 560×560 full-arena rendering.
+  setup(m, s, opts){
     mode = m==='B' ? 'modeB' : 'modeA';
     champReveal = -1;
     scIdx = Math.max(0, Math.min(DATA[mode].scenarios.length-1, s));
+    GIF = opts || null;
+    if(GIF){
+      const sc = DATA[mode].scenarios[scIdx];
+      view = GIF.crop===false ? {x0:0,y0:0,w:arena.w,h:arena.h}
+        : actionBBox(sc, GIF.margin ?? 0.45);
+      hudTop = GIF.hudStrip===false ? 0 : 56;
+      const tw = GIF.targetWidth || 640;
+      const s2 = (tw - 2*PAD) / view.w;
+      resizeCanvas(tw, Math.round(hudTop + view.h*s2 + 2*PAD));
+    } else {
+      view = {x0:0,y0:0,w:arena.w,h:arena.h};
+      hudTop = 0;
+      resizeCanvas(DEFAULT_W, DEFAULT_H);
+    }
     el('mA').classList.toggle('on', mode==='modeA');
     el('mB').classList.toggle('on', mode==='modeB');
     el('mC').classList.toggle('on', false);
@@ -740,10 +910,19 @@ window.__battleGif = {
     el('scenario').value = scIdx;
     reset();
   },
-  setupChampionship(sub){
+  setupChampionship(sub, opts){
     mode = 'championship';
     champSub = sub==='B' ? 'modeB' : 'modeA';
     champReveal = 0;
+    GIF = opts || null;
+    view = {x0:0,y0:0,w:arena.w,h:arena.h};
+    hudTop = 0;
+    if(GIF){
+      const topN = champSub==='modeA' ? 7 : 8;
+      resizeCanvas(GIF.targetWidth || 640, 98 + topN*58 + 22);
+    } else {
+      resizeCanvas(DEFAULT_W, DEFAULT_H);
+    }
     el('mA').classList.toggle('on', false);
     el('mB').classList.toggle('on', false);
     el('mC').classList.toggle('on', true);
@@ -753,6 +932,7 @@ window.__battleGif = {
     buildBoard();
     draw();
   },
+  canvasSize(){ return [cv.width, cv.height]; },
 };
 </script>
 </body>

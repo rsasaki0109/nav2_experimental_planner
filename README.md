@@ -10,31 +10,27 @@
 > Learned models propose. Classical safety disposes. Nav2 executes.
 
 <p align="center">
-  <a href="https://rsasaki0109.github.io/Nav2PlannerBattle/"><img src="docs/battle_race.gif" width="640" alt="Nav2 Planner Battle — Mode A race"></a>
+  <a href="https://rsasaki0109.github.io/Nav2PlannerBattle/"><img src="docs/battle_race.gif" width="800" alt="Nav2 Planner Battle — Mode A race"></a>
 </p>
 
 <p align="center"><strong><a href="https://rsasaki0109.github.io/Nav2PlannerBattle/">▶ Play online</a></strong> · no install · real <code>battle_trace</code> plugins</p>
 
 <p align="center">
-  <img src="docs/battle_maze.gif" width="310" alt="Micro-mouse maze">
+  <img src="docs/battle_duel.gif" width="380" alt="Planner duel">
   &nbsp;
-  <img src="docs/battle_duel.gif" width="310" alt="Planner duel">
+  <img src="docs/battle_maze.gif" width="380" alt="Micro-mouse maze">
 </p>
 
 <p align="center">
-  <a href="https://rsasaki0109.github.io/Nav2PlannerBattle/?m=C"><img src="docs/battle_championship.gif" width="420" alt="Championship — aggregate rankings"></a>
+  <a href="https://rsasaki0109.github.io/Nav2PlannerBattle/?m=C"><img src="docs/battle_championship.gif" width="520" alt="Championship — aggregate rankings"></a>
 </p>
 
 <p align="center"><strong>Gazebo replay</strong> · multiple TurtleBot3 · same <code>battle_trace</code> paths</p>
 
 <p align="center">
-  <img src="docs/battle_gazebo_race.gif" width="310" alt="Gazebo — Mode A race">
+  <img src="docs/battle_gazebo_race.gif" width="380" alt="Gazebo — Mode A race">
   &nbsp;
-  <img src="docs/battle_gazebo_maze.gif" width="310" alt="Gazebo — micro-mouse maze">
-</p>
-
-<p align="center">
-  <img src="docs/battle_gazebo_duel.gif" width="420" alt="Gazebo — planner duel">
+  <img src="docs/battle_gazebo_maze.gif" width="380" alt="Gazebo — micro-mouse maze">
 </p>
 
 ---
@@ -82,12 +78,6 @@ Rules: models never publish `cmd_vel` directly · no Nav2 fork · GPU failure �
 ---
 
 ## Demos
-
-<p align="center">
-  <img src="docs/demo.gif" width="400" alt="Mode A candidates">
-  &nbsp;
-  <img src="docs/mode_b_demo.gif" width="300" alt="Mode B path selection">
-</p>
 
 | Demo | Script |
 |---|---|
